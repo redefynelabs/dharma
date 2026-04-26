@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyAg71T-w9UfKy7qc_NoCup-eIng-dbDp30</string>
+	<key>GCM_SENDER_ID</key>
+	<string>866683342547</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.redefyne.dharma</string>
+	<key>PROJECT_ID</key>
+	<string>dharma-ai-scriptures-prod</string>
+	<key>STORAGE_BUCKET</key>
+	<string>dharma-ai-scriptures-prod.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:866683342547:ios:d3178f159fc8d86b694e26</string>
+</dict>
+</plist>

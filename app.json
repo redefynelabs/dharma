@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Dharma",
+    "slug": "dharma",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0A1E"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.redefyne.dharma",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used for profile photo",
+        "NSPhotoLibraryAddUsageDescription": "Allow Dharma to save verse images to your photo library.",
+        "NSPhotoLibraryUsageDescription": "Allow Dharma to save verse images to your photo library.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.866683342547-qhau404fi58rdo9bdaaqjoehki80873v"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0F0A1E"
+      },
+      "package": "com.redefyne.dharma",
+      "googleServicesFile": "./google-services.json",
+      "permissions": ["android.permission.READ_MEDIA_IMAGES", "android.permission.WRITE_EXTERNAL_STORAGE"]
+    },
+    "plugins": ["expo-router", "expo-font", "expo-secure-store", "expo-media-library"],
+    "scheme": "dharma",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

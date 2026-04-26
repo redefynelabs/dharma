@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "866683342547",
+    "project_id": "dharma-ai-scriptures-prod",
+    "storage_bucket": "dharma-ai-scriptures-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:866683342547:android:9a1eec901673b6bc694e26",
+        "android_client_info": {
+          "package_name": "com.redefyne.dharma"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "866683342547-q64qkupem525hn2fhhrpdj5i53ccbr41.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.redefyne.dharma",
+            "certificate_hash": "3aadd927abcd7905a38e4e093af91be218093f93"
+          }
+        },
+        {
+          "client_id": "866683342547-k5qmqimi8ocad1sdp9rbkk4bmnu0v0uj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAOt9tWbuN31opC8EAlkHnq_zKW6Wav30"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "866683342547-k5qmqimi8ocad1sdp9rbkk4bmnu0v0uj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "866683342547-qhau404fi58rdo9bdaaqjoehki80873v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.redefyne.dharma"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
