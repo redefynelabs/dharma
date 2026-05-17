@@ -3,7 +3,12 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ScrollView, View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator,
+  LayoutAnimation, Platform, UIManager, Animated, PanResponder,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -11,21 +16,27 @@ import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import ViewShot from 'react-native-view-shot';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors, Fonts, FontSize, Spacing, Radius, ThemeColors, useThemeColors } from '@/theme';
 import { useReaderStore } from '@/store/readerStore';
-import type { GitaVerse, RamayanaVerse, MahabharataVerse, ScriptureVerse } from '@/types';
+import { useAuthStore } from '@/store/authStore';
+import { verseApi } from '@/lib/api';
+import type { GitaVerse, RamayanaVerse, MahabharataVerse, ScriptureVerse, Scripture } from '@/types';
 import {
   getGitaChapter,
   getRamayanaSargaVerses,
   getMahabharataChapterVerses,
   getVerseById,
 } from '@/lib/scriptureReader';
+import { Download, Share2, Bookmark, BookmarkCheck } from 'lucide-react-native';
+import { useBookmarkStore } from '@/store/bookmarkStore';
 
-const BOOK_ACCENT: Record<string, string> = {
-  gita:        Colors.gitaAccent,
-  ramayana:    Colors.ramayanaAccent,
-  mahabharata: Colors.mahabharataAccent,
-};
+function getBookAccent(c: ThemeColors, book: string) {
+  if (book === 'gita') return c.gitaAccent;
+  if (book === 'ramayana') return c.ramayanaAccent;
+  if (book === 'mahabharata') return c.mahabharataAccent;
+  return c.gold;
+}
 
 const BOOK_SYM: Record<string, string> = { gita: 'ॐ', ramayana: '◈', mahabharata: '✦' };
 
@@ -128,18 +139,41 @@ function parseWordPairs(raw: string): Array<{ term: string; meaning: string }> {
 
 export default function VerseScreen() {
   const {
-    book, id, sectionKey, unitKey, verseIndex,
+    book, id, sectionKey, unitKey, verseIndex, direction,
   } = useLocalSearchParams<{
     book: string; id: string;
-    sectionKey?: string; unitKey?: string; verseIndex?: string;
+    sectionKey?: string; unitKey?: string; verseIndex?: string; direction?: string;
   }>();
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
-  const accent  = BOOK_ACCENT[book] ?? Colors.gold;
   const scrollRef = useRef<ScrollView>(null);
+  const slideAnim = useRef(
+    new Animated.Value(direction === 'prev' ? -400 : direction === 'next' ? 400 : 0)
+  ).current;
+  const swipeDragAnim = useRef(new Animated.Value(0)).current;
+  const colors  = useThemeColors();
+  const styles  = useStyles(colors);
+  const accent = getBookAccent(colors, book);
+  
+
+  const { toggleBookmark, isBookmarked } = useBookmarkStore();
+  const bookmarked = isBookmarked(id);
 
   const [exporting, setExporting] = useState(false);
   const shareCardRef = useRef<ViewShot>(null);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const hintOpacity = useRef(new Animated.Value(0)).current;
+
+  const [detailsOpen,    setDetailsOpen]    = useState(false);
+  const [aiCommentary,   setAiCommentary]   = useState('');
+  const [commentaryLoading, setCommentaryLoading] = useState(false);
+
+  const { user, isGuest, incrementDailyCommentary } = useAuthStore();
+  const isPremium        = user?.subscription.tier === 'pro';
+  const FREE_COMMENTARY  = 10;
+  const commentaryUsed   = user?.stats.dailyCommentary ?? 0;
+  const commentaryLeft   = FREE_COMMENTARY - commentaryUsed;
+  const commentaryLocked = !isPremium && commentaryUsed >= FREE_COMMENTARY;
 
   // ─── Build verse list for prev/next ────────────────────────────────────────
   const verseList = useMemo<ScriptureVerse[]>(() => {
@@ -156,33 +190,151 @@ export default function VerseScreen() {
   const hasPrev = idx > 0;
   const hasNext = idx >= 0 && idx < verseList.length - 1;
 
+  // ─── Swipe gesture for prev/next ───────────────────────────────────────────
+  const panResponder = useMemo(() => PanResponder.create({
+    // Only claim horizontal gestures — leaves vertical scroll untouched
+    onMoveShouldSetPanResponder: (_, { dx, dy }) =>
+      Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 8,
+    onPanResponderGrant: () => {
+      // Dismiss hint immediately on first swipe attempt
+      hintOpacity.stopAnimation();
+      Animated.timing(hintOpacity, { toValue: 0, duration: 200, useNativeDriver: true })
+        .start(() => {
+          setShowSwipeHint(false);
+          AsyncStorage.setItem('swipe_hint_seen', '1').catch(() => {});
+        });
+    },
+    onPanResponderMove: (_, { dx }) => {
+      // Dampen drag; very stiff at boundary when no verse in that direction
+      const canGo = dx > 0 ? hasPrev : hasNext;
+      swipeDragAnim.setValue(dx * (canGo ? 0.28 : 0.06));
+    },
+    onPanResponderRelease: (_, { dx, vx }) => {
+      const DIST = 60;
+      const VEL  = 0.4;
+      if ((dx > DIST || vx > VEL) && hasPrev) {
+        // Navigate immediately — new screen's slideAnim handles the entry transition.
+        // Do NOT reset swipeDragAnim first; that snap-to-0 causes the double-flash.
+        navigateTo(idx - 1, 'prev');
+      } else if ((dx < -DIST || vx < -VEL) && hasNext) {
+        navigateTo(idx + 1, 'next');
+      } else {
+        Animated.spring(swipeDragAnim, { toValue: 0, tension: 120, friction: 10, useNativeDriver: true }).start();
+      }
+    },
+    onPanResponderTerminate: () => {
+      Animated.spring(swipeDragAnim, { toValue: 0, tension: 120, friction: 10, useNativeDriver: true }).start();
+    },
+  }), [hasPrev, hasNext, idx]);
+
   const verse = getVerseById(id);
   const setLastRead = useReaderStore((s) => s.setLastRead);
 
+  // Auto-load cached commentary on mount
   useEffect(() => {
     if (!verse) return;
-    setLastRead({
-      book,
-      sectionKey: sectionKey ?? '',
-      unitKey,
-      verseId: id,
-      verseIndex: idx >= 0 ? idx : 0,
-      ref: verse.reference ?? id,
-      preview: (verse.english ?? '').slice(0, 120),
-      sym: BOOK_SYM[book] ?? 'ॐ',
-      accent: BOOK_ACCENT[book] ?? Colors.gold,
-      timestamp: Date.now(),
-    });
+    verseApi.getCommentary(book, verse.reference)
+      .then((res) => {
+        const cached = res.data.data?.commentary;
+        if (cached) setAiCommentary(cached);
+      })
+      .catch(() => {});
   }, [id]);
 
-  function navigateTo(newIdx: number) {
+useEffect(() => {
+  if (!verse) return;
+
+  const accent =
+    book === 'gita'
+      ? colors.gitaAccent
+      : book === 'ramayana'
+      ? colors.ramayanaAccent
+      : book === 'mahabharata'
+      ? colors.mahabharataAccent
+      : colors.gold;
+
+  setLastRead({
+    book,
+    sectionKey: sectionKey ?? '',
+    unitKey,
+    verseId: id,
+    verseIndex: idx >= 0 ? idx : 0,
+    ref: verse.reference ?? id,
+    preview: (verse.english ?? '').slice(0, 120),
+    sym: BOOK_SYM[book] ?? 'ॐ',
+    accent, // ✅ FIXED
+    timestamp: Date.now(),
+  });
+}, [id, colors]); // ✅ include colors
+
+  // Show swipe hint on first-ever visit to verse reader
+  useEffect(() => {
+    AsyncStorage.getItem('swipe_hint_seen').then((val) => {
+      if (val) return;
+      setShowSwipeHint(true);
+      Animated.sequence([
+        Animated.timing(hintOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.delay(2200),
+        Animated.timing(hintOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+      ]).start(() => {
+        setShowSwipeHint(false);
+        AsyncStorage.setItem('swipe_hint_seen', '1').catch(() => {});
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!direction) return;
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      tension: 80,
+      friction: 11,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  async function handleGenerateCommentary() {
+    if (!verse || commentaryLoading) return;
+    if (isGuest) { router.push('/(auth)/sign-in'); return; }
+    if (commentaryLocked) { router.push('/(app)/paywall'); return; }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCommentaryLoading(true);
+    try {
+      const scripture = book as Scripture;
+      const res = await verseApi.commentary({
+        scripture,
+        reference: verse.reference,
+        sanskrit: verse.sanskrit ?? '',
+        english: verse.english ?? '',
+      });
+      const text = res.data.data?.commentary ?? '';
+      setAiCommentary(text);
+      incrementDailyCommentary();
+    } catch (e: any) {
+      const msg: string = e?.message ?? '';
+      if (msg.toLowerCase().includes('limit') || e?.status === 429) {
+        router.push('/(app)/paywall');
+      } else {
+        Alert.alert('Error', msg || 'Could not generate commentary.');
+      }
+    } finally {
+      setCommentaryLoading(false);
+    }
+  }
+
+  function toggleDetails() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setDetailsOpen((v) => !v);
+  }
+
+  function navigateTo(newIdx: number, dir: 'prev' | 'next') {
     const target = verseList[newIdx];
     if (!target) return;
     Haptics.selectionAsync();
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     router.replace({
       pathname: '/(app)/reader/verse' as any,
-      params: { book, id: target.id, sectionKey, unitKey, verseIndex: String(newIdx) },
+      params: { book, id: target.id, sectionKey, unitKey, verseIndex: String(newIdx), direction: dir },
     });
   }
 
@@ -234,6 +386,24 @@ export default function VerseScreen() {
     } finally {
       setExporting(false);
     }
+  }
+
+  function handleBookmark() {
+    if (!verse) return;
+    if (isGuest) { router.push('/(auth)/sign-in'); return; }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    toggleBookmark({
+      id,
+      book,
+      sectionKey: sectionKey ?? '',
+      unitKey,
+      verseIndex: idx >= 0 ? idx : 0,
+      ref: verse.reference ?? id,
+      preview: (verse.english ?? '').slice(0, 120),
+      sym: BOOK_SYM[book] ?? 'ॐ',
+      accent,
+      timestamp: Date.now(),
+    });
   }
 
   if (!verse) {
@@ -318,18 +488,40 @@ export default function VerseScreen() {
           ) : (
             <>
               <TouchableOpacity
+                onPress={handleBookmark}
+                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                style={styles.topbarBtn}
+              >
+                {bookmarked ? (
+                  <BookmarkCheck size={20} color={accent} strokeWidth={2} style={{ opacity: 1 }} />
+                ) : (
+                  <Bookmark size={20} color={accent} strokeWidth={2} style={{ opacity: 0.7 }} />
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={handleDownload}
                 hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                 style={styles.topbarBtn}
               >
-                <Ionicons name="download-outline" size={20} color={accent} />
+               <Download
+  size={20}
+  color={accent}
+  strokeWidth={2}
+  style={{ opacity: 0.9 }}
+/>
+
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleShare}
                 hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
                 style={styles.topbarBtn}
               >
-                <Ionicons name="paper-plane-outline" size={20} color={accent} />
+               <Share2
+  size={20}
+  color={accent}
+  strokeWidth={2}
+  style={{ opacity: 0.9 }}
+/>
               </TouchableOpacity>
             </>
           )}
@@ -337,6 +529,10 @@ export default function VerseScreen() {
       </View>
 
       {/* ── Page content ── */}
+      <Animated.View
+        style={{ flex: 1, transform: [{ translateX: Animated.add(slideAnim, swipeDragAnim) }] }}
+        {...panResponder.panHandlers}
+      >
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
@@ -362,13 +558,6 @@ export default function VerseScreen() {
           </View>
         ) : null}
 
-        {/* ── Transliteration ── */}
-        {verse.transliteration ? (
-          <Text style={[styles.transliteration, { color: accent + 'CC' }]}>
-            {verse.transliteration}
-          </Text>
-        ) : null}
-
         {/* ── Ornament ── */}
         <View style={styles.ornamentRow}>
           <View style={[styles.ornamentLine, { backgroundColor: accent, opacity: 0.2 }]} />
@@ -387,36 +576,105 @@ export default function VerseScreen() {
           </View>
         ) : null}
 
-        {/* ── Word by Word meanings ── */}
-        {wordPairs.length > 0 ? (
-          <View style={[styles.section, { borderTopColor: accent + '18' }]}>
-            <Text style={[styles.sectionHeading, { color: accent }]}>Word by Word</Text>
-            <View style={styles.wordGrid}>
-              {wordPairs.map((p, i) => (
-                <View key={i} style={styles.wordPair}>
-                  <Text style={[styles.wordTerm, { color: accent }]}>{p.term}</Text>
-                  <Text style={styles.wordMeaning}>{p.meaning}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : wordMeaning ? (
-          <View style={[styles.section, { borderTopColor: accent + '18' }]}>
-            <Text style={[styles.sectionHeading, { color: accent }]}>Word by Word</Text>
-            <Text style={styles.sectionBody}>{wordMeaning}</Text>
+        {/* ── Accordion: Transliteration + Word meanings + Static commentary ── */}
+        {(verse.transliteration || wordPairs.length > 0 || wordMeaning || commentary) ? (
+          <View style={[styles.accordion, { borderColor: accent + '20' }]}>
+            <TouchableOpacity
+              style={styles.accordionHeader}
+              onPress={toggleDetails}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.accordionLabel, { color: accent }]}>Transliteration &amp; Word Meanings</Text>
+              <Text style={[styles.accordionChevron, { color: accent }]}>{detailsOpen ? '∧' : '∨'}</Text>
+            </TouchableOpacity>
+
+            {detailsOpen && (
+              <View style={styles.accordionBody}>
+                {verse.transliteration ? (
+                  <View style={styles.accordionSection}>
+                    <Text style={[styles.sectionHeading, { color: accent }]}>Transliteration</Text>
+                    <Text style={[styles.transliteration, { color: accent + 'CC', textAlign: 'left', marginTop: -4 }]}>
+                      {verse.transliteration}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {wordPairs.length > 0 ? (
+                  <View style={styles.accordionSection}>
+                    <Text style={[styles.sectionHeading, { color: accent }]}>Word by Word</Text>
+                    <View style={styles.wordGrid}>
+                      {wordPairs.map((p, i) => (
+                        <View key={i} style={styles.wordPair}>
+                          <Text style={[styles.wordTerm, { color: accent }]}>{p.term}</Text>
+                          <Text style={styles.wordMeaning}>{p.meaning}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : wordMeaning ? (
+                  <View style={styles.accordionSection}>
+                    <Text style={[styles.sectionHeading, { color: accent }]}>Word by Word</Text>
+                    <Text style={styles.sectionBody}>{wordMeaning}</Text>
+                  </View>
+                ) : null}
+
+                {commentary ? (
+                  <View style={styles.accordionSection}>
+                    <Text style={[styles.sectionHeading, { color: accent }]}>Commentary</Text>
+                    <Text style={styles.sectionBody}>{commentary}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
           </View>
         ) : null}
 
-        {/* ── Commentary ── */}
-        {commentary ? (
-          <View style={[styles.commentaryBlock, { borderColor: accent + '22', backgroundColor: accent + '06' }]}>
-            <View style={styles.commentaryHeader}>
-              <View style={[styles.commentaryBar, { backgroundColor: accent }]} />
-              <Text style={[styles.commentaryHeading, { color: accent }]}>Commentary</Text>
+        {/* ── AI Commentary ── */}
+        <View style={[styles.aiCommentaryBlock, { borderColor: accent + '28' }]}>
+          <View style={styles.aiCommentaryHeader}>
+            <View style={[styles.aiCommentaryIconBox, { backgroundColor: accent + '12' }]}>
+              <Text style={[styles.aiCommentaryIcon, { color: accent }]}>◎</Text>
             </View>
-            <Text style={styles.commentaryText}>{commentary}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.aiCommentaryTitle, { color: accent }]}>AI Commentary</Text>
+              {!isPremium && (
+                <Text style={styles.aiCommentaryQuota}>
+                  {commentaryLocked ? 'Daily limit reached' : `${commentaryLeft} of ${FREE_COMMENTARY} free today`}
+                </Text>
+              )}
+            </View>
+            {!aiCommentary && (
+              <TouchableOpacity
+                style={[
+                  styles.generateBtn,
+                  { borderColor: accent + '55', backgroundColor: commentaryLocked ? Colors.bg3 : accent + '12' },
+                ]}
+                onPress={handleGenerateCommentary}
+                disabled={commentaryLoading}
+                activeOpacity={0.75}
+              >
+                {commentaryLoading ? (
+                  <ActivityIndicator size="small" color={accent} />
+                ) : (
+                  <Text style={[styles.generateBtnText, { color: commentaryLocked ? Colors.text2 : accent }]}>
+                    {commentaryLocked ? 'Upgrade' : 'Generate  ✦'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
-        ) : null}
+
+          {aiCommentary ? (
+            <View style={styles.aiCommentaryResult}>
+              <View style={[styles.commentaryBar, { backgroundColor: accent }]} />
+              <Text style={styles.commentaryText}>{aiCommentary}</Text>
+            </View>
+          ) : commentaryLoading ? (
+            <Text style={[styles.aiCommentaryPlaceholder, { color: accent + '80' }]}>
+              Contemplating the verse…
+            </Text>
+          ) : null}
+        </View>
 
         {/* ── Chapter theme (shown once per verse, subtle) ── */}
         {contextTheme ? (
@@ -447,12 +705,13 @@ export default function VerseScreen() {
           <Text style={[styles.askArrow, { color: accent }]}>›</Text>
         </TouchableOpacity>
       </ScrollView>
+      </Animated.View>
 
       {/* ── Prev / Next bar ── */}
       <View style={[styles.navBar, { paddingBottom: insets.bottom + 8 }]}>
         <TouchableOpacity
           style={[styles.navBtn, !hasPrev && styles.navBtnDisabled]}
-          onPress={() => hasPrev && navigateTo(idx - 1)}
+          onPress={() => hasPrev && navigateTo(idx - 1, 'prev')}
           disabled={!hasPrev}
           activeOpacity={0.7}
         >
@@ -463,7 +722,7 @@ export default function VerseScreen() {
 
         <TouchableOpacity
           style={[styles.navBtn, !hasNext && styles.navBtnDisabled]}
-          onPress={() => hasNext && navigateTo(idx + 1)}
+          onPress={() => hasNext && navigateTo(idx + 1, 'next')}
           disabled={!hasNext}
           activeOpacity={0.7}
         >
@@ -472,6 +731,20 @@ export default function VerseScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── Swipe hint overlay (first-time only) ── */}
+      {showSwipeHint && (
+        <Animated.View style={[styles.swipeHint, { opacity: hintOpacity }]} pointerEvents="none">
+          <View style={styles.swipeHintInner}>
+            <Text style={styles.swipeHintArrow}>‹</Text>
+            <View style={styles.swipeHintCenter}>
+              <Text style={styles.swipeHintText}>Swipe to navigate</Text>
+              <Text style={styles.swipeHintSub}>between verses</Text>
+            </View>
+            <Text style={styles.swipeHintArrow}>›</Text>
+          </View>
+        </Animated.View>
+      )}
 
       {/* ── Hidden verse card for image export ── */}
       <View style={[styles.shareCardWrapper, { pointerEvents: 'none' }]}>
@@ -503,10 +776,11 @@ export default function VerseScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  safeArea:     { flex: 1, backgroundColor: Colors.bg0 },
+function useStyles(c: ThemeColors) {
+  return useMemo(() =>   StyleSheet.create({
+  safeArea:     { flex: 1, backgroundColor: c.bg0 },
   notFound:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  notFoundText: { fontFamily: Fonts.garamond, fontSize: FontSize.md, color: Colors.text2 },
+  notFoundText: { fontFamily: Fonts.garamond, fontSize: FontSize.md, color: c.text2 },
 
   // ── Topbar ──────────────────────────────────────────────────────────────
   topbar: {
@@ -522,7 +796,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.cinzel, fontSize: 11, letterSpacing: 1,
   },
   contextLabel: {
-    fontFamily: Fonts.garamondItalic, fontSize: 10, color: Colors.text2, letterSpacing: 0.3,
+    fontFamily: Fonts.garamondItalic, fontSize: 10, color: c.text2, letterSpacing: 0.3,
   },
   topbarActions: { flexDirection: 'row', alignItems: 'center', gap: 0, flexShrink: 0 },
   topbarBtn:     { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
@@ -545,7 +819,7 @@ const styles = StyleSheet.create({
   sanskritBlock: { paddingVertical: 4 },
   sanskrit: {
     fontFamily: Fonts.garamondItalic,
-    fontSize: 20, color: Colors.text1,
+    fontSize: 20, color: c.text1,
     lineHeight: 38, textAlign: 'center', letterSpacing: 0.3,
   },
 
@@ -565,7 +839,7 @@ const styles = StyleSheet.create({
   // ── Translation ─────────────────────────────────────────────────────────
   translation: {
     fontFamily: Fonts.garamond,
-    fontSize: 22, color: Colors.text0,
+    fontSize: 22, color: c.text0,
     lineHeight: 42, textAlign: 'center',
     letterSpacing: 0.15,
   },
@@ -579,7 +853,7 @@ const styles = StyleSheet.create({
   },
   hindiText: {
     fontFamily: Fonts.garamond, fontSize: FontSize.md,
-    color: Colors.text1, lineHeight: 28,
+    color: c.text1, lineHeight: 28,
   },
 
   // ── Generic section ─────────────────────────────────────────────────────
@@ -591,7 +865,7 @@ const styles = StyleSheet.create({
   },
   sectionBody: {
     fontFamily: Fonts.garamond, fontSize: FontSize.md,
-    color: Colors.text1, lineHeight: 28,
+    color: c.text1, lineHeight: 28,
   },
 
   // ── Word grid ───────────────────────────────────────────────────────────
@@ -606,26 +880,72 @@ const styles = StyleSheet.create({
   wordMeaning: {
     flex: 1,
     fontFamily: Fonts.garamond, fontSize: FontSize.sm,
-    color: Colors.text1, lineHeight: 22,
+    color: c.text1, lineHeight: 22,
+  },
+
+  // ── Accordion ────────────────────────────────────────────────────────────
+  accordion: {
+    borderWidth: 0.5, borderRadius: Radius.lg, overflow: 'hidden',
+  },
+  accordionHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14,
+  },
+  accordionLabel: {
+    fontFamily: Fonts.cinzel, fontSize: 10, letterSpacing: 1.5, textTransform: 'uppercase',
+  },
+  accordionChevron: {
+    fontFamily: Fonts.garamond, fontSize: 16, lineHeight: 18,
+  },
+  accordionBody: {
+    paddingHorizontal: 16, paddingBottom: 16, gap: 18,
+    borderTopWidth: 0.5, borderTopColor: 'rgba(200,137,42,0.12)',
+  },
+  accordionSection: { gap: 10, paddingTop: 14 },
+
+  // ── AI Commentary ────────────────────────────────────────────────────────
+  aiCommentaryBlock: {
+    borderWidth: 0.5, borderRadius: Radius.lg,
+    padding: 16, gap: 12, backgroundColor: c.bg2,
+  },
+  aiCommentaryHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+  },
+  aiCommentaryIconBox: {
+    width: 36, height: 36, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  aiCommentaryIcon: { fontFamily: Fonts.cinzel, fontSize: 16 },
+  aiCommentaryTitle: {
+    fontFamily: Fonts.cinzel, fontSize: FontSize.sm, letterSpacing: 0.3,
+  },
+  aiCommentaryQuota: {
+    fontFamily: Fonts.garamond, fontSize: 11, color: c.text2, marginTop: 2,
+  },
+  generateBtn: {
+    borderWidth: 0.5, borderRadius: Radius.md,
+    paddingHorizontal: 14, paddingVertical: 8,
+    alignItems: 'center', justifyContent: 'center',
+    minWidth: 100,
+  },
+  generateBtnText: {
+    fontFamily: Fonts.cinzel, fontSize: 10, letterSpacing: 1,
+  },
+  aiCommentaryResult: {
+    flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+  },
+  aiCommentaryPlaceholder: {
+    fontFamily: Fonts.garamondItalic, fontSize: FontSize.sm, textAlign: 'center',
+    paddingVertical: 4,
   },
 
   // ── Commentary block ────────────────────────────────────────────────────
-  commentaryBlock: {
-    borderWidth: 0.5, borderRadius: Radius.lg,
-    padding: 20, gap: 14,
-  },
-  commentaryHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
   commentaryBar: {
-    width: 3, height: 18, borderRadius: 2,
-  },
-  commentaryHeading: {
-    fontFamily: Fonts.cinzel, fontSize: 10, letterSpacing: 2, textTransform: 'uppercase',
+    width: 3, borderRadius: 2, alignSelf: 'stretch', minHeight: 20,
   },
   commentaryText: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.md,
-    color: Colors.text0, lineHeight: 32,
+    flex: 1, fontFamily: Fonts.garamond, fontSize: FontSize.md,
+    color: c.text0, lineHeight: 30,
   },
 
   // ── Chapter theme ────────────────────────────────────────────────────────
@@ -638,14 +958,14 @@ const styles = StyleSheet.create({
   },
   themeText: {
     fontFamily: Fonts.garamondItalic, fontSize: FontSize.sm,
-    color: Colors.text2, lineHeight: 22,
+    color: c.text2, lineHeight: 22,
   },
 
   // ── Ask Dharma ──────────────────────────────────────────────────────────
   askBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 0.5, borderRadius: Radius.lg,
-    padding: Spacing.lg, backgroundColor: Colors.bg2,
+    padding: Spacing.lg, backgroundColor: c.bg2,
   },
   askIconBox: {
     width: 40, height: 40, borderRadius: 10,
@@ -655,10 +975,10 @@ const styles = StyleSheet.create({
   askBody:  { flex: 1 },
   askTitle: {
     fontFamily: Fonts.cinzel, fontSize: FontSize.sm,
-    color: Colors.text0, letterSpacing: 0.3, marginBottom: 3,
+    color: c.text0, letterSpacing: 0.3, marginBottom: 3,
   },
   askSub:   {
-    fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: Colors.text2,
+    fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: c.text2,
   },
   askArrow: { fontFamily: Fonts.garamond, fontSize: 22, lineHeight: 24 },
 
@@ -667,17 +987,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: Spacing.xl, paddingTop: 14,
     borderTopWidth: 0.5, borderTopColor: 'rgba(200,137,42,0.1)',
-    backgroundColor: Colors.bg0,
+    backgroundColor: c.bg0,
   },
   navBtn:             { flex: 1, paddingVertical: 8 },
   navBtnDisabled:     { opacity: 0.2 },
   navBtnText: {
     fontFamily: Fonts.cinzel, fontSize: 12,
-    color: Colors.text1, letterSpacing: 0.5,
+    color: c.text1, letterSpacing: 0.5,
   },
-  navBtnTextDisabled: { color: Colors.text2 },
+  navBtnTextDisabled: { color: c.text2 },
   navDot: {
     width: 4, height: 4, borderRadius: 2, marginHorizontal: 16,
+  },
+
+  // ── Swipe hint overlay ───────────────────────────────────────────────────
+  swipeHint: {
+    position: 'absolute', bottom: 110, left: 0, right: 0,
+    alignItems: 'center',
+  },
+  swipeHintInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: 'rgba(15,13,9,0.82)',
+    borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.30)',
+    borderRadius: 40,
+    paddingHorizontal: 24, paddingVertical: 12,
+  },
+  swipeHintArrow: {
+    fontFamily: Fonts.garamond, fontSize: 26, color: c.gold, lineHeight: 28,
+  },
+  swipeHintCenter: { alignItems: 'center', gap: 2 },
+  swipeHintText: {
+    fontFamily: Fonts.cinzel, fontSize: 10, color: c.text0, letterSpacing: 1.5,
+  },
+  swipeHintSub: {
+    fontFamily: Fonts.garamond, fontSize: 11, color: c.text2, letterSpacing: 0.5,
   },
 
   // ── Share card (off-screen) ──────────────────────────────────────────────
@@ -707,4 +1050,6 @@ const styles = StyleSheet.create({
   shareCardApp: {
     fontFamily: Fonts.garamond, fontSize: 11, color: '#7a6a4a', letterSpacing: 1,
   },
-});
+}), [c]);
+}
+

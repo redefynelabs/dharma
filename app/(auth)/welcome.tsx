@@ -1,10 +1,20 @@
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { useMemo } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { GoldButton, OutlineButton } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing } from '@/theme';
+import { useAuthStore } from '@/store/authStore';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
+  const styles = useStyles(colors);
+  const setGuest = useAuthStore((s) => s.setGuest);
+
+  function handleContinueAsGuest() {
+    setGuest(true);
+    router.replace('/(app)/(tabs)');
+  }
 
   return (
     <View style={styles.container}>
@@ -28,6 +38,9 @@ export default function WelcomeScreen() {
             onPress={() => router.push('/(auth)/sign-in')}
             style={{ marginTop: 12 }}
           />
+          <TouchableOpacity onPress={handleContinueAsGuest} style={styles.guestBtn} activeOpacity={0.7}>
+            <Text style={styles.guestBtnText}>CONTINUE AS GUEST</Text>
+          </TouchableOpacity>
         </View>
 
         <Text style={styles.quote}>
@@ -38,27 +51,34 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg0 },
-  ring: { position: 'absolute', borderWidth: 0.5, borderColor: Colors.gold },
-  content: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: 40 },
-  hero: { alignItems: 'center', paddingTop: 80, paddingBottom: 56 },
-  heroOm: {
-    fontFamily: Fonts.cinzel, fontSize: 72, color: Colors.gold,
-    textShadowColor: Colors.goldGlow, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 40,
-  },
-  heroTitle: {
-    fontFamily: Fonts.cinzelBold, fontSize: 40, letterSpacing: 9,
-    color: Colors.text0, marginTop: 20, marginBottom: 6,
-  },
-  heroSubtitle: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    letterSpacing: 4, color: Colors.goldDim, textTransform: 'uppercase',
-  },
-  goldDivider: { width: 60, height: 1, backgroundColor: Colors.gold, marginTop: 22, opacity: 0.5 },
-  actions: { gap: 0 },
-  quote: {
-    fontFamily: Fonts.garamondItalic, fontSize: FontSize.md, color: Colors.text2,
-    textAlign: 'center', marginTop: 44, letterSpacing: 0.5, lineHeight: 24,
-  },
-});
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.bg0 },
+    ring: { position: 'absolute', borderWidth: 0.5, borderColor: c.gold },
+    content: { flexGrow: 1, paddingHorizontal: Spacing.xl, paddingBottom: 40 },
+    hero: { alignItems: 'center', paddingTop: 80, paddingBottom: 56 },
+    heroOm: {
+      fontFamily: Fonts.cinzel, fontSize: 72, color: c.gold,
+      textShadowColor: c.goldGlow, textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 40,
+    },
+    heroTitle: {
+      fontFamily: Fonts.cinzelBold, fontSize: 40, letterSpacing: 9,
+      color: c.text0, marginTop: 20, marginBottom: 6,
+    },
+    heroSubtitle: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.xs,
+      letterSpacing: 4, color: c.goldDim, textTransform: 'uppercase',
+    },
+    goldDivider: { width: 60, height: 1, backgroundColor: c.gold, marginTop: 22, opacity: 0.5 },
+    actions: { gap: 0 },
+    guestBtn: { alignItems: 'center', paddingVertical: 14, marginTop: 4 },
+    guestBtnText: {
+      fontFamily: Fonts.cinzel, fontSize: FontSize.xs,
+      color: c.text2, letterSpacing: 2,
+    },
+    quote: {
+      fontFamily: Fonts.garamondItalic, fontSize: FontSize.md, color: c.text2,
+      textAlign: 'center', marginTop: 44, letterSpacing: 0.5, lineHeight: 24,
+    },
+  }), [c]);
+}

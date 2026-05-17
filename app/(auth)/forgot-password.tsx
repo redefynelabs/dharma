@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View, Text, TextInput,
   StyleSheet, KeyboardAvoidingView, Platform, Alert,
@@ -10,7 +10,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { sendPasswordReset } from '@/lib/auth';
 import { GoldButton, BackButton, Topbar } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing } from '@/theme';
 
 const schema = z.object({ email: z.string().email('Enter a valid email') });
 type FormData = z.infer<typeof schema>;
@@ -18,6 +18,8 @@ type FormData = z.infer<typeof schema>;
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [sent, setSent] = useState(false);
+  const colors = useThemeColors();
+  const styles = useStyles(colors);
 
   const { control, handleSubmit, formState: { errors, isSubmitting } } =
     useForm<FormData>({ resolver: zodResolver(schema) });
@@ -72,7 +74,7 @@ export default function ForgotPasswordScreen() {
                   onBlur={onBlur}
                   onChangeText={onChange}
                   placeholder="you@example.com"
-                  placeholderTextColor={Colors.text2}
+                  placeholderTextColor={colors.text2}
                   keyboardType="email-address"
                   autoCapitalize="none"
                 />
@@ -93,21 +95,23 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.bg1 },
-  content: { flex: 1, padding: Spacing.xl, paddingTop: 36 },
-  successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl },
-  successIcon: { fontFamily: Fonts.cinzel, fontSize: 48, color: Colors.gold, marginBottom: 24 },
-  successTitle: { fontFamily: Fonts.cinzel, fontSize: 24, color: Colors.text0, letterSpacing: 1.5, marginBottom: 12, textAlign: 'center' },
-  successSubtitle: { fontFamily: Fonts.garamond, fontSize: FontSize.base, color: Colors.text1, textAlign: 'center', lineHeight: 26 },
-  formTitle: { fontFamily: Fonts.cinzel, fontSize: 24, color: Colors.text0, letterSpacing: 1.5, marginBottom: 8 },
-  formSubtitle: { fontFamily: Fonts.garamond, fontSize: FontSize.base, color: Colors.text1, lineHeight: 26 },
-  field: { gap: 7 },
-  fieldLabel: { fontFamily: Fonts.garamond, fontSize: FontSize.xs, letterSpacing: 2, textTransform: 'uppercase', color: Colors.text2 },
-  input: {
-    backgroundColor: Colors.bg2, borderWidth: 0.5, borderColor: Colors.goldBorder,
-    borderRadius: 3, paddingHorizontal: 16, paddingVertical: 14,
-    fontFamily: Fonts.garamond, fontSize: FontSize.base, color: Colors.text0,
-  },
-  errorText: { fontFamily: Fonts.garamond, fontSize: 12, color: Colors.danger, marginTop: 4 },
-});
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: c.bg1 },
+    content: { flex: 1, padding: Spacing.xl, paddingTop: 36 },
+    successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing.xl },
+    successIcon: { fontFamily: Fonts.cinzel, fontSize: 48, color: c.gold, marginBottom: 24 },
+    successTitle: { fontFamily: Fonts.cinzel, fontSize: 24, color: c.text0, letterSpacing: 1.5, marginBottom: 12, textAlign: 'center' },
+    successSubtitle: { fontFamily: Fonts.garamond, fontSize: FontSize.base, color: c.text1, textAlign: 'center', lineHeight: 26 },
+    formTitle: { fontFamily: Fonts.cinzel, fontSize: 24, color: c.text0, letterSpacing: 1.5, marginBottom: 8 },
+    formSubtitle: { fontFamily: Fonts.garamond, fontSize: FontSize.base, color: c.text1, lineHeight: 26 },
+    field: { gap: 7 },
+    fieldLabel: { fontFamily: Fonts.garamond, fontSize: FontSize.xs, letterSpacing: 2, textTransform: 'uppercase', color: c.text2 },
+    input: {
+      backgroundColor: c.bg2, borderWidth: 0.5, borderColor: c.goldBorder,
+      borderRadius: 3, paddingHorizontal: 16, paddingVertical: 14,
+      fontFamily: Fonts.garamond, fontSize: FontSize.base, color: c.text0,
+    },
+    errorText: { fontFamily: Fonts.garamond, fontSize: 12, color: c.danger, marginTop: 4 },
+  }), [c]);
+}

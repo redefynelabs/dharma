@@ -3,7 +3,7 @@
 // Ramayana: sarga list for a kanda  (with kanda overview card)
 // Mahabharata: chapter list for a parva  (with parva overview card)
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
   StyleSheet, ActivityIndicator,
@@ -11,7 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackButton, Topbar } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { Colors, Fonts, FontSize, Spacing, Radius, ThemeColors, useThemeColors } from '@/theme';
 import type { GitaVerse } from '@/types';
 import {
   getGitaChapter,
@@ -227,11 +227,7 @@ const MAHABHARATA_PARVAS: Record<number, {
   },
 };
 
-const BOOK_ACCENT: Record<string, string> = {
-  gita:        Colors.gitaAccent,
-  ramayana:    Colors.ramayanaAccent,
-  mahabharata: Colors.mahabharataAccent,
-};
+
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -239,7 +235,14 @@ export default function SectionScreen() {
   const { book, sectionKey } = useLocalSearchParams<{ book: string; sectionKey: string }>();
   const router     = useRouter();
   const sectionNum = Number(sectionKey);
-  const accent     = BOOK_ACCENT[book] ?? Colors.gold;
+  const colors  = useThemeColors();
+    const styles  = useStyles(colors);
+    const BOOK_ACCENT: Record<string, string> = {
+  gita:        colors.gitaAccent,
+  ramayana:    colors.ramayanaAccent,
+  mahabharata: colors.mahabharataAccent,
+};
+  const accent     = BOOK_ACCENT[book] ?? colors.gold;
   const isGita     = book === 'gita';
 
   const [loading, setLoading] = useState(true);
@@ -446,11 +449,12 @@ export default function SectionScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  safe:    { flex: 1, backgroundColor: Colors.bg0 },
+function useStyles(c: ThemeColors) {
+  return useMemo(() =>  StyleSheet.create({
+  safe:    { flex: 1, backgroundColor: c.bg0 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.md, color: Colors.text2,
+    fontFamily: Fonts.garamond, fontSize: FontSize.md, color: c.text2,
   },
   list: { paddingBottom: 48 },
 
@@ -462,7 +466,7 @@ const styles = StyleSheet.create({
     borderWidth: 0.5,
     borderRadius: Radius.lg,
     overflow: 'hidden',
-    backgroundColor: Colors.bg1,
+    backgroundColor: c.bg1,
   },
   overviewTopBar: {
     height: 3, width: '100%',
@@ -475,7 +479,7 @@ const styles = StyleSheet.create({
   overviewTitleText: { flex: 1 },
   overviewTitle: {
     fontFamily: Fonts.cinzelBold, fontSize: FontSize.lg,
-    color: Colors.text0, letterSpacing: 0.4, marginBottom: 4,
+    color: c.text0, letterSpacing: 0.4, marginBottom: 4,
   },
   overviewSubtitle: {
     fontFamily: Fonts.garamondItalic, fontSize: FontSize.sm,
@@ -499,14 +503,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.cinzel, fontSize: 8, letterSpacing: 1.5,
   },
   overviewMetaValue: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.sm, color: Colors.text1,
+    fontFamily: Fonts.garamond, fontSize: FontSize.sm, color: c.text1,
   },
   overviewDivider: {
     height: 0.5, marginHorizontal: 18, marginVertical: 4,
   },
   overviewBody: {
     fontFamily: Fonts.garamond, fontSize: FontSize.md,
-    color: Colors.text1, lineHeight: 30,
+    color: c.text1, lineHeight: 30,
     paddingHorizontal: 18, paddingBottom: 18, paddingTop: 8,
   },
 
@@ -534,11 +538,11 @@ const styles = StyleSheet.create({
   verseContent: { flex: 1 },
   verseEnglish: {
     fontFamily: Fonts.garamond, fontSize: FontSize.md,
-    color: Colors.text0, lineHeight: 25, marginBottom: 5,
+    color: c.text0, lineHeight: 25, marginBottom: 5,
   },
   verseSanskrit: {
     fontFamily: Fonts.garamondItalic, fontSize: FontSize.xs,
-    color: Colors.text2, lineHeight: 18,
+    color: c.text2, lineHeight: 18,
   },
 
   // ── Sub-unit rows (Ramayana / Mahabharata) ────────────────────────────
@@ -553,8 +557,10 @@ const styles = StyleSheet.create({
   },
   unitLabel: {
     flex: 1, fontFamily: Fonts.cinzel, fontSize: FontSize.sm,
-    color: Colors.text0, letterSpacing: 0.3,
+    color: c.text0, letterSpacing: 0.3,
   },
 
   chevron: { fontFamily: Fonts.garamond, fontSize: 20, lineHeight: 22 },
-});
+}), [c]);
+}
+

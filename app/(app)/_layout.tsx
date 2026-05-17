@@ -1,16 +1,31 @@
 // app/(app)/_layout.tsx
-import { Stack, Redirect } from 'expo-router';
+import { useEffect } from 'react';
+import { Stack, Redirect, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@/store/authStore';
 
 export default function AppLayout() {
-  const { user } = useAuthStore();
+  const { user, isGuest } = useAuthStore();
+  const router = useRouter();
 
-  // Not signed in — redirect to auth
-  if (!user) return <Redirect href="/(auth)/welcome" />;
+  // First-launch permissions check (skip for guests)
+  useEffect(() => {
+    if (!user) return;
+    AsyncStorage.getItem('dharma_permissions_done').then((val) => {
+      if (!val) router.replace('/(app)/permissions');
+    });
+  }, [user?.uid]);
+
+  // Not signed in and not a guest — redirect to auth
+  if (!user && !isGuest) return <Redirect href="/(auth)/welcome" />;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen
+        name="permissions"
+        options={{ presentation: 'card', animation: 'fade', gestureEnabled: false }}
+      />
       <Stack.Screen
         name="chat/[sessionId]"
         options={{
@@ -30,6 +45,13 @@ export default function AppLayout() {
         options={{
           presentation: 'modal',
           animation: 'slide_from_bottom',
+        }}
+      />
+      <Stack.Screen
+        name="profile/edit"
+        options={{
+          presentation: 'card',
+          animation: 'slide_from_right',
         }}
       />
       <Stack.Screen
@@ -54,10 +76,17 @@ export default function AppLayout() {
         }}
       />
       <Stack.Screen
-        name="reader/verse"
+        name="profile/bookmarks"
         options={{
           presentation: 'card',
           animation: 'slide_from_right',
+        }}
+      />
+      <Stack.Screen
+        name="reader/verse"
+        options={{
+          presentation: 'card',
+          animation: 'none',
         }}
       />
       <Stack.Screen

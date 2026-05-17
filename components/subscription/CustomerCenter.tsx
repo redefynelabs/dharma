@@ -2,7 +2,7 @@
 // RevenueCat Customer Center for subscription management
 // Note: Customer Center is available on RevenueCat Pro and Enterprise plans
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscription } from '@/hooks/useSubscription';
 import { getExpirationDate, willRenew, isInTrialPeriod, restorePurchasesWithHandling } from '@/lib/subscription';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing, Radius } from '@/theme';
 
 /**
  * Customer Center Screen
@@ -38,6 +38,8 @@ export default function CustomerCenter() {
     refreshCustomerInfo,
     presentPaywall,
   } = useSubscription();
+  const colors = useThemeColors();
+  const styles = useStyles(colors);
 
   const [isRestoring, setIsRestoring] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -185,7 +187,7 @@ export default function CustomerCenter() {
           style={styles.backButton}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="arrow-back" size={24} color={Colors.text0} />
+          <Ionicons name="arrow-back" size={24} color={colors.text0} />
         </TouchableOpacity>
         <Text style={styles.title}>Subscription</Text>
         <View style={styles.placeholder} />
@@ -206,7 +208,7 @@ export default function CustomerCenter() {
             disabled={isRestoring}
           >
             <View style={styles.actionIcon}>
-              <Ionicons name="refresh" size={20} color={Colors.gold} />
+              <Ionicons name="refresh" size={20} color={colors.gold} />
             </View>
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Restore Purchases</Text>
@@ -215,9 +217,9 @@ export default function CustomerCenter() {
               </Text>
             </View>
             {isRestoring ? (
-              <ActivityIndicator size="small" color={Colors.gold} />
+              <ActivityIndicator size="small" color={colors.gold} />
             ) : (
-              <Ionicons name="chevron-forward" size={20} color={Colors.text2} />
+              <Ionicons name="chevron-forward" size={20} color={colors.text2} />
             )}
           </TouchableOpacity>
 
@@ -228,7 +230,7 @@ export default function CustomerCenter() {
               onPress={handleManageSubscription}
             >
               <View style={styles.actionIcon}>
-                <Ionicons name="settings-outline" size={20} color={Colors.gold} />
+                <Ionicons name="settings-outline" size={20} color={colors.gold} />
               </View>
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Manage Subscription</Text>
@@ -236,7 +238,7 @@ export default function CustomerCenter() {
                   Cancel or change your subscription
                 </Text>
               </View>
-              <Ionicons name="open-outline" size={18} color={Colors.text2} />
+              <Ionicons name="open-outline" size={18} color={colors.text2} />
             </TouchableOpacity>
           )}
 
@@ -248,7 +250,7 @@ export default function CustomerCenter() {
               disabled={isLoading}
             >
               <View style={styles.actionIcon}>
-                <Ionicons name="star" size={20} color={Colors.gold} />
+                <Ionicons name="star" size={20} color={colors.gold} />
               </View>
               <View style={styles.actionContent}>
                 <Text style={[styles.actionTitle, styles.upgradeTitle]}>
@@ -259,9 +261,9 @@ export default function CustomerCenter() {
                 </Text>
               </View>
               {isLoading ? (
-                <ActivityIndicator size="small" color={Colors.gold} />
+                <ActivityIndicator size="small" color={colors.gold} />
               ) : (
-                <Ionicons name="chevron-forward" size={20} color={Colors.gold} />
+                <Ionicons name="chevron-forward" size={20} color={colors.gold} />
               )}
             </TouchableOpacity>
           )}
@@ -272,7 +274,7 @@ export default function CustomerCenter() {
             onPress={handleRequestRefund}
           >
             <View style={styles.actionIcon}>
-              <Ionicons name="cash-outline" size={20} color={Colors.gold} />
+              <Ionicons name="cash-outline" size={20} color={colors.gold} />
             </View>
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Request Refund</Text>
@@ -280,7 +282,7 @@ export default function CustomerCenter() {
                 Contact Apple or Google for refunds
               </Text>
             </View>
-            <Ionicons name="open-outline" size={18} color={Colors.text2} />
+            <Ionicons name="open-outline" size={18} color={colors.text2} />
           </TouchableOpacity>
         </View>
 
@@ -304,148 +306,150 @@ export default function CustomerCenter() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg0,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.goldBorder,
-  },
-  backButton: {
-    padding: Spacing.sm,
-    marginLeft: -Spacing.sm,
-  },
-  title: {
-    fontFamily: Fonts.cinzel,
-    fontSize: FontSize.lg,
-    color: Colors.text0,
-    letterSpacing: 1,
-  },
-  placeholder: {
-    width: 40,
-  },
-  content: {
-    flex: 1,
-    padding: Spacing.xl,
-  },
-  statusCard: {
-    backgroundColor: Colors.bg2,
-    borderWidth: 0.5,
-    borderColor: Colors.gold,
-    borderRadius: Radius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xxl,
-  },
-  inactiveCard: {
-    borderColor: Colors.goldBorder,
-  },
-  statusHeader: {
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  statusBadge: {
-    backgroundColor: 'rgba(200,137,42,0.15)',
-    borderRadius: Radius.full,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-  },
-  statusBadgeText: {
-    fontFamily: Fonts.cinzel,
-    fontSize: 11,
-    letterSpacing: 2,
-    color: Colors.gold,
-  },
-  inactiveBadge: {
-    backgroundColor: Colors.bg3,
-  },
-  inactiveBadgeText: {
-    fontFamily: Fonts.cinzel,
-    fontSize: 11,
-    letterSpacing: 2,
-    color: Colors.text2,
-  },
-  statusDetail: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.md,
-    color: Colors.text1,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  warningText: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.sm,
-    color: '#E8A83A',
-    textAlign: 'center',
-    marginTop: Spacing.sm,
-  },
-  actionsSection: {
-    marginBottom: Spacing.xxl,
-  },
-  sectionTitle: {
-    fontFamily: Fonts.cinzel,
-    fontSize: FontSize.md,
-    color: Colors.text0,
-    letterSpacing: 0.5,
-    marginBottom: Spacing.md,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.bg2,
-    borderWidth: 0.5,
-    borderColor: Colors.goldBorder,
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-  },
-  upgradeButton: {
-    borderColor: Colors.gold,
-    backgroundColor: Colors.bg3,
-  },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(200,137,42,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: Spacing.md,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontFamily: Fonts.cinzel,
-    fontSize: FontSize.md,
-    color: Colors.text0,
-    marginBottom: 2,
-  },
-  upgradeTitle: {
-    color: Colors.gold,
-  },
-  actionSubtitle: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.sm,
-    color: Colors.text2,
-  },
-  helpSection: {
-    alignItems: 'center',
-  },
-  helpText: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.sm,
-    color: Colors.text2,
-    textAlign: 'center',
-  },
-  helpLink: {
-    color: Colors.gold,
-    textDecorationLine: 'underline',
-  },
-});
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.bg0,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: Spacing.xl,
+      paddingVertical: Spacing.md,
+      borderBottomWidth: 0.5,
+      borderBottomColor: c.goldBorder,
+    },
+    backButton: {
+      padding: Spacing.sm,
+      marginLeft: -Spacing.sm,
+    },
+    title: {
+      fontFamily: Fonts.cinzel,
+      fontSize: FontSize.lg,
+      color: c.text0,
+      letterSpacing: 1,
+    },
+    placeholder: {
+      width: 40,
+    },
+    content: {
+      flex: 1,
+      padding: Spacing.xl,
+    },
+    statusCard: {
+      backgroundColor: c.bg2,
+      borderWidth: 0.5,
+      borderColor: c.gold,
+      borderRadius: Radius.lg,
+      padding: Spacing.xl,
+      marginBottom: Spacing.xxl,
+    },
+    inactiveCard: {
+      borderColor: c.goldBorder,
+    },
+    statusHeader: {
+      alignItems: 'center',
+      marginBottom: Spacing.md,
+    },
+    statusBadge: {
+      backgroundColor: 'rgba(200,137,42,0.15)',
+      borderRadius: Radius.full,
+      paddingHorizontal: 16,
+      paddingVertical: 6,
+    },
+    statusBadgeText: {
+      fontFamily: Fonts.cinzel,
+      fontSize: 11,
+      letterSpacing: 2,
+      color: c.gold,
+    },
+    inactiveBadge: {
+      backgroundColor: c.bg3,
+    },
+    inactiveBadgeText: {
+      fontFamily: Fonts.cinzel,
+      fontSize: 11,
+      letterSpacing: 2,
+      color: c.text2,
+    },
+    statusDetail: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.md,
+      color: c.text1,
+      textAlign: 'center',
+      lineHeight: 24,
+    },
+    warningText: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.sm,
+      color: '#E8A83A',
+      textAlign: 'center',
+      marginTop: Spacing.sm,
+    },
+    actionsSection: {
+      marginBottom: Spacing.xxl,
+    },
+    sectionTitle: {
+      fontFamily: Fonts.cinzel,
+      fontSize: FontSize.md,
+      color: c.text0,
+      letterSpacing: 0.5,
+      marginBottom: Spacing.md,
+    },
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.bg2,
+      borderWidth: 0.5,
+      borderColor: c.goldBorder,
+      borderRadius: Radius.md,
+      padding: Spacing.lg,
+      marginBottom: Spacing.md,
+    },
+    upgradeButton: {
+      borderColor: c.gold,
+      backgroundColor: c.bg3,
+    },
+    actionIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: 'rgba(200,137,42,0.1)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: Spacing.md,
+    },
+    actionContent: {
+      flex: 1,
+    },
+    actionTitle: {
+      fontFamily: Fonts.cinzel,
+      fontSize: FontSize.md,
+      color: c.text0,
+      marginBottom: 2,
+    },
+    upgradeTitle: {
+      color: c.gold,
+    },
+    actionSubtitle: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.sm,
+      color: c.text2,
+    },
+    helpSection: {
+      alignItems: 'center',
+    },
+    helpText: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.sm,
+      color: c.text2,
+      textAlign: 'center',
+    },
+    helpLink: {
+      color: c.gold,
+      textDecorationLine: 'underline',
+    },
+  }), [c]);
+}

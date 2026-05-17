@@ -4,6 +4,6 @@ import { Redirect } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
 
 export default function Index() {
-  const { user } = useAuthStore();
-  return <Redirect href={user ? '/(app)/(tabs)' : '/(auth)/welcome'} />;
+  const { user, isGuest } = useAuthStore();
+  return <Redirect href={(user || isGuest) ? '/(app)/(tabs)' : '/(auth)/welcome'} />;
 }

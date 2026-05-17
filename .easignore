@@ -1,0 +1,14 @@
+# Dependencies — EAS installs these
+node_modules/
+
+# iOS Pods — EAS installs these
+ios/Pods/
+ios/build/
+
+# Unused monolithic JSON files (app uses split parva/kanda files instead)
+data/mahabharata.json
+data/ramayana.json
+
+# Misc
+.git/
+*.log

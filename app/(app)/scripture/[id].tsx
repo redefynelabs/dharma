@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BackButton, Topbar } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing, Radius } from '@/theme';
 
 // ─── Section metadata ──────────────────────────────────────────────────────────
 
@@ -59,33 +60,35 @@ const MAHABHARATA_SECTIONS = [
   { title: 'Svargarohana Parva',    subtitle: 'Book of the Ascent to Heaven',    parvaNumber: 18 },
 ];
 
-const META: Record<string, {
-  name: string; sym: string; accent: string; glow: string;
-  opening: string; totalVerses: string;
-}> = {
-  gita: {
-    name: 'Bhagavad Gita', sym: 'ॐ',
-    accent: Colors.gitaAccent, glow: 'rgba(200,137,42,0.16)',
-    opening: 'The sacred dialogue between Arjuna and the divine Krishna, spoken on the battlefield of Kurukshetra. Eighteen chapters that contain every truth a seeker could need.',
-    totalVerses: '701 verses · 18 chapters',
-  },
-  ramayana: {
-    name: 'Valmiki Ramayana', sym: '◈',
-    accent: Colors.ramayanaAccent, glow: 'rgba(46,125,94,0.16)',
-    opening: "Composed by the sage Valmiki, the first poem ever written. It follows Rama from the palace of Ayodhya to the forests of Lanka and back — an unforgettable journey of love, duty, and grace.",
-    totalVerses: '23,402 verses · 7 kandas',
-  },
-  mahabharata: {
-    name: 'Mahabharata', sym: '✦',
-    accent: Colors.mahabharataAccent, glow: 'rgba(139,58,58,0.16)',
-    opening: "The world's longest epic. The sage Vyasa weaves together a hundred stories of honour and betrayal, war and peace. Whatever has happened in the world, it is said, is in the Mahabharata.",
-    totalVerses: '73,452 verses · 18 parvas',
-  },
-};
-
 export default function ScriptureScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
+  const colors  = useThemeColors();
+  const styles  = useStyles(colors);
+
+  const META = useMemo(() => ({
+    gita: {
+      name: 'Bhagavad Gita', sym: 'ॐ',
+      accent: colors.gitaAccent, glow: 'rgba(200,137,42,0.16)',
+      opening: 'The sacred dialogue between Arjuna and the divine Krishna, spoken on the battlefield of Kurukshetra. Eighteen chapters that contain every truth a seeker could need.',
+      totalVerses: '701 verses · 18 chapters',
+    },
+    ramayana: {
+      name: 'Valmiki Ramayana', sym: '◈',
+      accent: colors.ramayanaAccent, glow: 'rgba(46,125,94,0.16)',
+      opening: "Composed by the sage Valmiki, the first poem ever written. It follows Rama from the palace of Ayodhya to the forests of Lanka and back — an unforgettable journey of love, duty, and grace.",
+      totalVerses: '23,402 verses · 7 kandas',
+    },
+    mahabharata: {
+      name: 'Mahabharata', sym: '✦',
+      accent: colors.mahabharataAccent, glow: 'rgba(139,58,58,0.16)',
+      opening: "The world's longest epic. The sage Vyasa weaves together a hundred stories of honour and betrayal, war and peace. Whatever has happened in the world, it is said, is in the Mahabharata.",
+      totalVerses: '73,452 verses · 18 parvas',
+    },
+  } as Record<string, {
+    name: string; sym: string; accent: string; glow: string;
+    opening: string; totalVerses: string;
+  }>), [colors]);
 
   const meta = META[id ?? 'gita'];
   if (!meta) return null;
@@ -189,79 +192,81 @@ export default function ScriptureScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.bg0 },
-  scroll: { paddingBottom: 48 },
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    safe:   { flex: 1, backgroundColor: c.bg0 },
+    scroll: { paddingBottom: 48 },
 
-  // ── Hero ──────────────────────────────────────────
-  hero: {
-    alignItems: 'center',
-    paddingHorizontal: 28, paddingTop: 32, paddingBottom: 28,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,137,42,0.08)',
-    overflow: 'hidden', gap: 12,
-  },
-  heroGlow: {
-    position: 'absolute', top: 0, left: 0, right: 0, height: 180,
-  },
-  symbolRing: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: Colors.bg2,
-    borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 4,
-    shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2, shadowRadius: 16, elevation: 5,
-  },
-  heroSym:     { fontFamily: Fonts.cinzel, fontSize: 28 },
-  heroName:    { fontFamily: Fonts.cinzelBold, fontSize: FontSize.xl, color: Colors.text0, letterSpacing: 1, textAlign: 'center' },
-  heroBadge:   { fontFamily: Fonts.cinzel, fontSize: 10, letterSpacing: 1.5 },
-  heroOpening: {
-    fontFamily: Fonts.garamondItalic, fontSize: FontSize.md,
-    color: Colors.text1, textAlign: 'center', lineHeight: 27,
-    marginTop: 4,
-  },
+    // ── Hero ──────────────────────────────────────────
+    hero: {
+      alignItems: 'center',
+      paddingHorizontal: 28, paddingTop: 32, paddingBottom: 28,
+      borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,137,42,0.08)',
+      overflow: 'hidden', gap: 12,
+    },
+    heroGlow: {
+      position: 'absolute', top: 0, left: 0, right: 0, height: 180,
+    },
+    symbolRing: {
+      width: 72, height: 72, borderRadius: 36,
+      backgroundColor: c.bg2,
+      borderWidth: 1,
+      alignItems: 'center', justifyContent: 'center',
+      marginBottom: 4,
+      shadowColor: c.gold,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2, shadowRadius: 16, elevation: 5,
+    },
+    heroSym:     { fontFamily: Fonts.cinzel, fontSize: 28 },
+    heroName:    { fontFamily: Fonts.cinzelBold, fontSize: FontSize.xl, color: c.text0, letterSpacing: 1, textAlign: 'center' },
+    heroBadge:   { fontFamily: Fonts.cinzel, fontSize: 10, letterSpacing: 1.5 },
+    heroOpening: {
+      fontFamily: Fonts.garamondItalic, fontSize: FontSize.md,
+      color: c.text1, textAlign: 'center', lineHeight: 27,
+      marginTop: 4,
+    },
 
-  // ── Ask row ───────────────────────────────────────
-  askRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    marginHorizontal: Spacing.xl, marginTop: 20,
-    backgroundColor: Colors.bg2,
-    borderWidth: 0.5, borderRadius: Radius.lg,
-    padding: Spacing.lg,
-  },
-  askIcon: {
-    width: 40, height: 40, borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  askIconText: { fontFamily: Fonts.cinzel, fontSize: 18 },
-  askBody:     { flex: 1 },
-  askTitle:    { fontFamily: Fonts.cinzel, fontSize: FontSize.sm, color: Colors.text0, letterSpacing: 0.3, marginBottom: 3 },
-  askSub:      { fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: Colors.text2 },
-  askArrow:    { fontFamily: Fonts.garamond, fontSize: 22, lineHeight: 24 },
+    // ── Ask row ───────────────────────────────────────
+    askRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      marginHorizontal: Spacing.xl, marginTop: 20,
+      backgroundColor: c.bg2,
+      borderWidth: 0.5, borderRadius: Radius.lg,
+      padding: Spacing.lg,
+    },
+    askIcon: {
+      width: 40, height: 40, borderRadius: 10,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    askIconText: { fontFamily: Fonts.cinzel, fontSize: 18 },
+    askBody:     { flex: 1 },
+    askTitle:    { fontFamily: Fonts.cinzel, fontSize: FontSize.sm, color: c.text0, letterSpacing: 0.3, marginBottom: 3 },
+    askSub:      { fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: c.text2 },
+    askArrow:    { fontFamily: Fonts.garamond, fontSize: 22, lineHeight: 24 },
 
-  // ── Table of contents ─────────────────────────────
-  toc: { marginTop: 28, paddingHorizontal: Spacing.xl },
-  tocHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6,
-  },
-  tocLine: { flex: 1, height: 0.5 },
-  tocLabel: {
-    fontFamily: Fonts.cinzel, fontSize: 9,
-    color: Colors.text2, letterSpacing: 3,
-  },
-  tocRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 15,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,137,42,0.06)',
-  },
-  tocNum: {
-    fontFamily: Fonts.cinzel, fontSize: 11,
-    letterSpacing: 0.5, width: 26, textAlign: 'right',
-  },
-  tocInfo:     { flex: 1 },
-  tocTitle:    { fontFamily: Fonts.cinzel, fontSize: FontSize.sm, color: Colors.text0, letterSpacing: 0.3, marginBottom: 3 },
-  tocSubtitle: { fontFamily: Fonts.garamondItalic, fontSize: FontSize.xs, color: Colors.text2 },
-  tocCount:    { fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: Colors.text2 },
-  tocChevron:  { fontFamily: Fonts.garamond, fontSize: 20, color: Colors.text2, lineHeight: 22 },
-});
+    // ── Table of contents ─────────────────────────────
+    toc: { marginTop: 28, paddingHorizontal: Spacing.xl },
+    tocHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6,
+    },
+    tocLine: { flex: 1, height: 0.5 },
+    tocLabel: {
+      fontFamily: Fonts.cinzel, fontSize: 9,
+      color: c.text2, letterSpacing: 3,
+    },
+    tocRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      paddingVertical: 15,
+      borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,137,42,0.06)',
+    },
+    tocNum: {
+      fontFamily: Fonts.cinzel, fontSize: 11,
+      letterSpacing: 0.5, width: 26, textAlign: 'right',
+    },
+    tocInfo:     { flex: 1 },
+    tocTitle:    { fontFamily: Fonts.cinzel, fontSize: FontSize.sm, color: c.text0, letterSpacing: 0.3, marginBottom: 3 },
+    tocSubtitle: { fontFamily: Fonts.garamondItalic, fontSize: FontSize.xs, color: c.text2 },
+    tocCount:    { fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: c.text2 },
+    tocChevron:  { fontFamily: Fonts.garamond, fontSize: 20, color: c.text2, lineHeight: 22 },
+  }), [c]);
+}

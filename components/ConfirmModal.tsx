@@ -1,5 +1,6 @@
+import { useMemo } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing, Radius } from '@/theme';
 
 interface Props {
   visible: boolean;
@@ -22,6 +23,9 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: Props) {
+  const colors = useThemeColors();
+  const styles = useStyles(colors);
+
   return (
     <Modal
       visible={visible}
@@ -63,85 +67,87 @@ export function ConfirmModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(8,7,5,0.88)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  container: {
-    width: '100%',
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    borderWidth: 0.5,
-    borderColor: Colors.goldBorder,
-    overflow: 'hidden',
-  },
-  topBar: {
-    height: 1.5,
-    backgroundColor: Colors.gold,
-    opacity: 0.35,
-  },
-  title: {
-    fontFamily: Fonts.cinzelBold,
-    fontSize: FontSize.base,
-    color: Colors.text0,
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    paddingTop: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-  },
-  message: {
-    fontFamily: Fonts.garamondItalic,
-    fontSize: FontSize.md,
-    color: Colors.text1,
-    textAlign: 'center',
-    lineHeight: 24,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-  },
-  divider: {
-    height: 0.5,
-    backgroundColor: Colors.goldBorder,
-    marginHorizontal: 0,
-  },
-  buttons: {
-    flexDirection: 'row',
-    height: 52,
-  },
-  cancelBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelText: {
-    fontFamily: Fonts.cinzel,
-    fontSize: FontSize.sm,
-    color: Colors.text2,
-    letterSpacing: 0.5,
-  },
-  btnDivider: {
-    width: 0.5,
-    backgroundColor: Colors.goldBorder,
-  },
-  confirmBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmBtnDanger: {
-    // no background change, just text color
-  },
-  confirmText: {
-    fontFamily: Fonts.cinzel,
-    fontSize: FontSize.sm,
-    color: Colors.gold,
-    letterSpacing: 0.5,
-  },
-  confirmTextDanger: {
-    color: Colors.danger,
-  },
-});
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: 'rgba(8,7,5,0.88)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 32,
+    },
+    container: {
+      width: '100%',
+      backgroundColor: c.bg2,
+      borderRadius: Radius.lg,
+      borderWidth: 0.5,
+      borderColor: c.goldBorder,
+      overflow: 'hidden',
+    },
+    topBar: {
+      height: 1.5,
+      backgroundColor: c.gold,
+      opacity: 0.35,
+    },
+    title: {
+      fontFamily: Fonts.cinzelBold,
+      fontSize: FontSize.base,
+      color: c.text0,
+      letterSpacing: 0.5,
+      textAlign: 'center',
+      paddingTop: Spacing.xl,
+      paddingHorizontal: Spacing.xl,
+    },
+    message: {
+      fontFamily: Fonts.garamondItalic,
+      fontSize: FontSize.md,
+      color: c.text1,
+      textAlign: 'center',
+      lineHeight: 24,
+      paddingTop: Spacing.md,
+      paddingBottom: Spacing.xl,
+      paddingHorizontal: Spacing.xl,
+    },
+    divider: {
+      height: 0.5,
+      backgroundColor: c.goldBorder,
+      marginHorizontal: 0,
+    },
+    buttons: {
+      flexDirection: 'row',
+      height: 52,
+    },
+    cancelBtn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cancelText: {
+      fontFamily: Fonts.cinzel,
+      fontSize: FontSize.sm,
+      color: c.text2,
+      letterSpacing: 0.5,
+    },
+    btnDivider: {
+      width: 0.5,
+      backgroundColor: c.goldBorder,
+    },
+    confirmBtn: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    confirmBtnDanger: {
+      // no background change, just text color
+    },
+    confirmText: {
+      fontFamily: Fonts.cinzel,
+      fontSize: FontSize.sm,
+      color: c.gold,
+      letterSpacing: 0.5,
+    },
+    confirmTextDanger: {
+      color: c.danger,
+    },
+  }), [c]);
+}

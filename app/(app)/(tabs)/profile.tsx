@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
   ScrollView, View, Text, TouchableOpacity,
   StyleSheet, Alert, Switch, RefreshControl, Platform,
@@ -9,19 +9,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Constants from 'expo-constants';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
+import { useBookmarkStore } from '@/store/bookmarkStore';
 import { signOut } from '@/lib/auth';
 import { userApi } from '@/lib/api';
 import { Divider } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing, Radius } from '@/theme';
 
 const STALE_MS = 30_000; // re-fetch if data is older than 30s
 
 const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
-const FREE_DAILY_LIMIT = 3;
+const FREE_DAILY_LIMIT = 10;
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, setUser, refreshUser } = useAuthStore();
+  const { user, isGuest, setUser, refreshUser } = useAuthStore();
+  const { isDark, toggle: toggleTheme } = useThemeStore();
+  const colors = useThemeColors();
+  const styles = useStyles(colors);
+
+  const { bookmarks } = useBookmarkStore();
   const isProUser = user?.subscription.tier === 'pro';
   const [refreshing, setRefreshing] = useState(false);
   const lastFetchedAt = useRef<number>(0);
@@ -100,12 +107,43 @@ export default function ProfileScreen() {
 
   const renewalDate = formatDate(user?.subscription.currentPeriodEnd);
 
+  if (isGuest) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.guestWall}>
+          <View style={styles.avatarRing}>
+            <Text style={styles.avatarInitial}>ॐ</Text>
+          </View>
+          <Text style={styles.guestTitle}>Create Your Account</Text>
+          <Text style={styles.guestSubtitle}>
+            Sign in to track your journey, save bookmarks, and access your full profile.
+          </Text>
+          <TouchableOpacity
+            style={styles.guestSignInBtn}
+            onPress={() => router.push('/(auth)/sign-in')}
+            activeOpacity={0.8}
+          >
+            <LinearGradient
+              colors={['rgba(200,137,42,0.18)', 'rgba(200,137,42,0.06)']}
+              style={styles.guestSignInInner}
+            >
+              <Text style={styles.guestSignInText}>SIGN IN</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(auth)/sign-up')} activeOpacity={0.7}>
+            <Text style={styles.guestRegisterText}>New here? Create account</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.gold} />}
       >
 
         {/* ── Hero ──────────────────────────────────── */}
@@ -115,6 +153,14 @@ export default function ProfileScreen() {
           </View>
           <Text style={styles.displayName}>{user?.displayName ?? 'Seeker'}</Text>
           {user?.email ? <Text style={styles.email}>{user.email}</Text> : null}
+
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/profile/edit' as any)}
+            style={styles.editBtn}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.editBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
 
           <View style={styles.badgeRow}>
             <View style={styles.providerBadge}>
@@ -129,7 +175,7 @@ export default function ProfileScreen() {
             ) : (
               <TouchableOpacity onPress={() => router.push('/(app)/paywall')} activeOpacity={0.8}>
                 <LinearGradient
-                  colors={['rgba(200,137,42,0.14)', 'rgba(232,168,58,0.08)']}
+                  colors={[`rgba(200,137,42,0.14)`, `rgba(232,168,58,0.08)`]}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={styles.upgradeBadge}
                 >
@@ -193,7 +239,7 @@ export default function ProfileScreen() {
                   )}
                   <View style={styles.proDetailRow}>
                     <Text style={styles.proDetailKey}>Daily queries</Text>
-                    <Text style={[styles.proDetailVal, { color: Colors.gold }]}>Unlimited</Text>
+                    <Text style={[styles.proDetailVal, { color: colors.gold }]}>Unlimited</Text>
                   </View>
                 </View>
               </LinearGradient>
@@ -206,6 +252,8 @@ export default function ProfileScreen() {
         {/* ── Preferences ───────────────────────────── */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>PREFERENCES</Text>
+
+          {/* Notifications row */}
           <View style={styles.row}>
             <View style={styles.rowIcon}><Text style={styles.rowGlyph}>◎</Text></View>
             <View style={styles.rowBody}>
@@ -215,8 +263,25 @@ export default function ProfileScreen() {
             <Switch
               value={user?.preferences.notificationsEnabled ?? true}
               onValueChange={handleToggleNotifications}
-              trackColor={{ false: Colors.bg4, true: Colors.goldDim }}
-              thumbColor={Colors.gold}
+              trackColor={{ false: colors.bg4, true: colors.goldDim }}
+              thumbColor={colors.gold}
+            />
+          </View>
+
+          {/* Theme toggle row */}
+          <View style={styles.row}>
+            <View style={styles.rowIcon}>
+              <Text style={styles.rowGlyph}>{isDark ? '◑' : '◐'}</Text>
+            </View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowLabel}>{isDark ? 'Dark Mode' : 'Light Mode'}</Text>
+              <Text style={styles.rowSub}>{isDark ? 'Switch to light theme' : 'Switch to dark theme'}</Text>
+            </View>
+            <Switch
+              value={isDark}
+              onValueChange={toggleTheme}
+              trackColor={{ false: colors.goldBorder, true: colors.goldDim }}
+              thumbColor={colors.gold}
             />
           </View>
         </View>
@@ -226,6 +291,15 @@ export default function ProfileScreen() {
         {/* ── Account ───────────────────────────────── */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>ACCOUNT</Text>
+
+          <TouchableOpacity style={styles.row} onPress={() => router.push('/(app)/profile/bookmarks' as any)} activeOpacity={0.7}>
+            <View style={styles.rowIcon}><Text style={styles.rowGlyph}>◫</Text></View>
+            <View style={styles.rowBody}>
+              <Text style={styles.rowLabel}>Bookmarks</Text>
+              <Text style={styles.rowSub}>{bookmarks.length === 0 ? 'No saved verses' : `${bookmarks.length} verse${bookmarks.length === 1 ? '' : 's'} saved`}</Text>
+            </View>
+            <Text style={styles.rowArrow}>›</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.row} onPress={() => router.push('/(app)/profile/privacy' as any)} activeOpacity={0.7}>
             <View style={styles.rowIcon}><Text style={styles.rowGlyph}>☰</Text></View>
@@ -262,9 +336,9 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut} activeOpacity={0.8}>
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteLink} activeOpacity={0.7}>
+          {/* <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteLink} activeOpacity={0.7}>
             <Text style={styles.deleteLinkText}>Delete Account</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
         </View>
 
       </ScrollView>
@@ -272,137 +346,171 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: Colors.bg0 },
-  scroll: { paddingBottom: 100 },
+function useStyles(colors: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: colors.bg0 },
+    scroll: { paddingBottom: 100 },
 
-  // Hero
-  hero: {
-    alignItems: 'center',
-    paddingTop: Spacing.xxl, paddingBottom: Spacing.xl,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,137,42,0.1)',
-  },
-  avatarRing: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: Colors.bg3, borderWidth: 1.5, borderColor: Colors.gold,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 14,
-    shadowColor: Colors.gold, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2, shadowRadius: 14, elevation: 4,
-  },
-  avatarInitial: { fontFamily: Fonts.cinzel, fontSize: 26, color: Colors.gold },
-  displayName: { fontFamily: Fonts.cinzel, fontSize: 18, color: Colors.text0, letterSpacing: 1, marginBottom: 5 },
-  email: { fontFamily: Fonts.garamond, fontSize: 13, color: Colors.text2, marginBottom: 14 },
-  badgeRow: { flexDirection: 'row', gap: 8 },
-  providerBadge: {
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full,
-    backgroundColor: Colors.bg3, borderWidth: 0.5, borderColor: Colors.goldBorder,
-  },
-  providerText: { fontFamily: Fonts.cinzel, fontSize: 10, color: Colors.text2, letterSpacing: 1 },
-  proBadge: {
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full,
-    backgroundColor: 'rgba(200,137,42,0.1)', borderWidth: 0.5, borderColor: Colors.gold,
-  },
-  proText: { fontFamily: Fonts.cinzel, fontSize: 10, color: Colors.gold, letterSpacing: 1.5 },
-  upgradeBadge: {
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: Radius.full,
-    borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.35)',
-  },
-  upgradeText: { fontFamily: Fonts.cinzel, fontSize: 10, color: Colors.gold, letterSpacing: 1.5 },
+    // Hero
+    hero: {
+      alignItems: 'center',
+      paddingTop: Spacing.xxl, paddingBottom: Spacing.xl,
+      borderBottomWidth: 0.5, borderBottomColor: `${colors.gold}1A`,
+    },
+    avatarRing: {
+      width: 72, height: 72, borderRadius: 36,
+      backgroundColor: colors.bg3, borderWidth: 1.5, borderColor: colors.gold,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+      shadowColor: colors.gold, shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.2, shadowRadius: 14, elevation: 4,
+    },
+    avatarInitial: { fontFamily: Fonts.cinzel, fontSize: 26, color: colors.gold },
+    displayName: { fontFamily: Fonts.cinzel, fontSize: 18, color: colors.text0, letterSpacing: 1, marginBottom: 5 },
+    email: { fontFamily: Fonts.garamond, fontSize: 13, color: colors.text2, marginBottom: 14 },
+    editBtn: {
+      paddingHorizontal: 16, paddingVertical: 6, borderRadius: Radius.full,
+      borderWidth: 0.5, borderColor: colors.goldBorder,
+      backgroundColor: colors.bg3, marginBottom: 12,
+    },
+    editBtnText: { fontFamily: Fonts.cinzel, fontSize: 10, color: colors.text1, letterSpacing: 1 },
+    badgeRow: { flexDirection: 'row', gap: 8 },
+    providerBadge: {
+      paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full,
+      backgroundColor: colors.bg3, borderWidth: 0.5, borderColor: colors.goldBorder,
+    },
+    providerText: { fontFamily: Fonts.cinzel, fontSize: 10, color: colors.text2, letterSpacing: 1 },
+    proBadge: {
+      paddingHorizontal: 12, paddingVertical: 5, borderRadius: Radius.full,
+      backgroundColor: 'rgba(200,137,42,0.1)', borderWidth: 0.5, borderColor: colors.gold,
+    },
+    proText: { fontFamily: Fonts.cinzel, fontSize: 10, color: colors.gold, letterSpacing: 1.5 },
+    upgradeBadge: {
+      paddingHorizontal: 14, paddingVertical: 6, borderRadius: Radius.full,
+      borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.35)',
+    },
+    upgradeText: { fontFamily: Fonts.cinzel, fontSize: 10, color: colors.gold, letterSpacing: 1.5 },
 
-  // Stats
-  statsRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,137,42,0.1)',
-  },
-  statCell: { flex: 1, paddingVertical: 16, alignItems: 'center' },
-  statBorder: { borderRightWidth: 0.5, borderRightColor: 'rgba(200,137,42,0.1)' },
-  statValue: { fontFamily: Fonts.cinzel, fontSize: 20, color: Colors.gold, marginBottom: 3 },
-  statLabel: { fontFamily: Fonts.garamond, fontSize: 10, color: Colors.text2, letterSpacing: 1.5, textTransform: 'uppercase' },
+    // Stats
+    statsRow: {
+      flexDirection: 'row',
+      borderBottomWidth: 0.5, borderBottomColor: `${colors.gold}1A`,
+    },
+    statCell: { flex: 1, paddingVertical: 16, alignItems: 'center' },
+    statBorder: { borderRightWidth: 0.5, borderRightColor: `${colors.gold}1A` },
+    statValue: { fontFamily: Fonts.cinzel, fontSize: 20, color: colors.gold, marginBottom: 3 },
+    statLabel: { fontFamily: Fonts.garamond, fontSize: 10, color: colors.text2, letterSpacing: 1.5, textTransform: 'uppercase' },
 
-  // Section
-  section: { paddingBottom: 4 },
-  sectionLabel: {
-    fontFamily: Fonts.cinzel, fontSize: 9, color: Colors.text2,
-    letterSpacing: 2.5, paddingHorizontal: Spacing.xl, paddingTop: 14, paddingBottom: 6,
-  },
+    // Section
+    section: { paddingBottom: 4 },
+    sectionLabel: {
+      fontFamily: Fonts.cinzel, fontSize: 9, color: colors.text2,
+      letterSpacing: 2.5, paddingHorizontal: Spacing.xl, paddingTop: 14, paddingBottom: 6,
+    },
 
-  // Premium subscription card
-  proCard: {
-    marginHorizontal: Spacing.xl, marginBottom: 8,
-    borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.35)',
-    borderRadius: Radius.lg, overflow: 'hidden',
-    padding: Spacing.lg,
-  },
-  proCardHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  proCardSymbol: {
-    fontFamily: Fonts.cinzelBold, fontSize: 22, color: Colors.gold,
-  },
-  proCardTitleBlock: { flex: 1 },
-  proCardTitle: {
-    fontFamily: Fonts.cinzelBold, fontSize: FontSize.base,
-    color: Colors.gold, letterSpacing: 1,
-  },
-  proCardPeriod: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    color: Colors.text2, marginTop: 1,
-  },
-  proStatusPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(39,174,96,0.1)',
-    borderWidth: 0.5, borderColor: 'rgba(39,174,96,0.3)',
-    borderRadius: Radius.full, paddingHorizontal: 9, paddingVertical: 4,
-  },
-  proStatusDot: {
-    width: 6, height: 6, borderRadius: 3,
-    backgroundColor: Colors.success,
-    shadowColor: Colors.success, shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8, shadowRadius: 3,
-  },
-  proStatusText: {
-    fontFamily: Fonts.cinzel, fontSize: 9,
-    color: Colors.success, letterSpacing: 1,
-  },
-  proCardSep: {
-    height: 0.5, backgroundColor: 'rgba(200,137,42,0.15)',
-    marginVertical: Spacing.md,
-  },
-  proCardDetails: { gap: 8 },
-  proDetailRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  proDetailKey: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.sm, color: Colors.text2,
-  },
-  proDetailVal: {
-    fontFamily: Fonts.garamondMedium, fontSize: FontSize.sm, color: Colors.text0,
-  },
+    // Premium subscription card
+    proCard: {
+      marginHorizontal: Spacing.xl, marginBottom: 8,
+      borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.35)',
+      borderRadius: Radius.lg, overflow: 'hidden',
+      padding: Spacing.lg,
+    },
+    proCardHeader: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+    },
+    proCardSymbol: {
+      fontFamily: Fonts.cinzelBold, fontSize: 22, color: colors.gold,
+    },
+    proCardTitleBlock: { flex: 1 },
+    proCardTitle: {
+      fontFamily: Fonts.cinzelBold, fontSize: FontSize.base,
+      color: colors.gold, letterSpacing: 1,
+    },
+    proCardPeriod: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.xs,
+      color: colors.text2, marginTop: 1,
+    },
+    proStatusPill: {
+      flexDirection: 'row', alignItems: 'center', gap: 5,
+      backgroundColor: 'rgba(39,174,96,0.1)',
+      borderWidth: 0.5, borderColor: 'rgba(39,174,96,0.3)',
+      borderRadius: Radius.full, paddingHorizontal: 9, paddingVertical: 4,
+    },
+    proStatusDot: {
+      width: 6, height: 6, borderRadius: 3,
+      backgroundColor: colors.success,
+      shadowColor: colors.success, shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.8, shadowRadius: 3,
+    },
+    proStatusText: {
+      fontFamily: Fonts.cinzel, fontSize: 9,
+      color: colors.success, letterSpacing: 1,
+    },
+    proCardSep: {
+      height: 0.5, backgroundColor: 'rgba(200,137,42,0.15)',
+      marginVertical: Spacing.md,
+    },
+    proCardDetails: { gap: 8 },
+    proDetailRow: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    },
+    proDetailKey: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.sm, color: colors.text2,
+    },
+    proDetailVal: {
+      fontFamily: Fonts.garamondMedium, fontSize: FontSize.sm, color: colors.text0,
+    },
 
-  // Setting rows
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingHorizontal: Spacing.xl, paddingVertical: 13,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,137,42,0.07)',
-  },
-  rowIcon: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.bg2,
-    borderWidth: 0.5, borderColor: Colors.goldBorder,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  rowGlyph: { fontFamily: Fonts.cinzel, fontSize: 13, color: Colors.text1 },
-  rowBody: { flex: 1 },
-  rowLabel: { fontFamily: Fonts.garamond, fontSize: 15, color: Colors.text0, marginBottom: 1 },
-  rowSub: { fontFamily: Fonts.garamond, fontSize: 12, color: Colors.text2 },
-  rowArrow: { fontFamily: Fonts.garamond, fontSize: 20, color: Colors.text2, lineHeight: 22 },
+    // Setting rows
+    row: {
+      flexDirection: 'row', alignItems: 'center', gap: 14,
+      paddingHorizontal: Spacing.xl, paddingVertical: 13,
+      borderBottomWidth: 0.5, borderBottomColor: colors.goldBorder,
+    },
+    rowIcon: {
+      width: 34, height: 34, borderRadius: 17, backgroundColor: colors.bg2,
+      borderWidth: 0.5, borderColor: colors.goldBorder,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    rowGlyph: { fontFamily: Fonts.cinzel, fontSize: 13, color: colors.text1 },
+    rowBody: { flex: 1 },
+    rowLabel: { fontFamily: Fonts.garamond, fontSize: 15, color: colors.text0, marginBottom: 1 },
+    rowSub: { fontFamily: Fonts.garamond, fontSize: 12, color: colors.text2 },
+    rowArrow: { fontFamily: Fonts.garamond, fontSize: 20, color: colors.text2, lineHeight: 22 },
 
-  // Danger zone
-  dangerZone: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: 10 },
-  signOutBtn: {
-    paddingVertical: 13, borderRadius: Radius.sm,
-    borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.2)', alignItems: 'center',
-  },
-  signOutText: { fontFamily: Fonts.cinzel, fontSize: 11, letterSpacing: 2, color: Colors.text1 },
-  deleteLink: { alignItems: 'center', paddingVertical: 8 },
-  deleteLinkText: { fontFamily: Fonts.garamond, fontSize: 13, color: Colors.danger, letterSpacing: 0.3 },
-});
+    // Danger zone
+    dangerZone: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg, gap: 10 },
+    signOutBtn: {
+      paddingVertical: 13, borderRadius: Radius.sm,
+      borderWidth: 0.5, borderColor: colors.goldBorder, alignItems: 'center',
+    },
+    signOutText: { fontFamily: Fonts.cinzel, fontSize: 11, letterSpacing: 2, color: colors.text1 },
+    deleteLink: { alignItems: 'center', paddingVertical: 8 },
+    deleteLinkText: { fontFamily: Fonts.garamond, fontSize: 13, color: colors.danger, letterSpacing: 0.3 },
+
+    // Guest wall
+    guestWall: {
+      flex: 1, alignItems: 'center', justifyContent: 'center',
+      paddingHorizontal: 40, gap: 16,
+    },
+    guestTitle: {
+      fontFamily: Fonts.cinzelBold, fontSize: FontSize.xl,
+      color: colors.text0, letterSpacing: 0.5, textAlign: 'center',
+    },
+    guestSubtitle: {
+      fontFamily: Fonts.garamondItalic, fontSize: FontSize.md,
+      color: colors.text2, textAlign: 'center', lineHeight: 26,
+    },
+    guestSignInBtn: {
+      borderRadius: Radius.full, overflow: 'hidden',
+      borderWidth: 0.5, borderColor: colors.goldBorder, marginTop: 8,
+    },
+    guestSignInInner: { paddingHorizontal: 36, paddingVertical: 13 },
+    guestSignInText: {
+      fontFamily: Fonts.cinzel, fontSize: 10, letterSpacing: 2, color: colors.gold,
+    },
+    guestRegisterText: {
+      fontFamily: Fonts.garamond, fontSize: 14, color: colors.text2,
+      letterSpacing: 0.3, marginTop: 4,
+    },
+  }), [colors]);
+}

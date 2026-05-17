@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Platform,
   TouchableOpacity, Alert, ActivityIndicator,
@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { useAuthStore } from '@/store/authStore';
 import { Topbar, BackButton } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing, Radius } from '@/theme';
 import { deviceApi } from '@/lib/api';
 import { getDeviceId } from '@/lib/deviceId';
 import type { DeviceSession } from '@/types';
@@ -28,6 +28,8 @@ function timeAgo(iso: string): string {
 export default function DeviceScreen() {
   const router  = useRouter();
   const { user } = useAuthStore();
+  const colors = useThemeColors();
+  const styles = useStyles(colors);
 
   const isPro       = user?.subscription.tier === 'pro';
   const dailyUsed   = user?.stats.dailyAiQueries ?? 0;
@@ -96,7 +98,7 @@ export default function DeviceScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>ACTIVE SESSIONS</Text>
-            {loading && <ActivityIndicator size="small" color={Colors.goldDim} />}
+            {loading && <ActivityIndicator size="small" color={colors.goldDim} />}
           </View>
 
           <View style={styles.card}>
@@ -143,7 +145,7 @@ export default function DeviceScreen() {
                           activeOpacity={0.6}
                         >
                           {isRemoving
-                            ? <ActivityIndicator size="small" color={Colors.danger} />
+                            ? <ActivityIndicator size="small" color={colors.danger} />
                             : <Text style={styles.removeText}>✕</Text>}
                         </TouchableOpacity>
                       )}
@@ -178,8 +180,8 @@ export default function DeviceScreen() {
                   {
                     width: `${usageRatio * 100}%` as any,
                     backgroundColor: isPro
-                      ? Colors.gold
-                      : dailyUsed >= FREE_LIMIT ? Colors.danger : Colors.gold,
+                      ? colors.gold
+                      : dailyUsed >= FREE_LIMIT ? colors.danger : colors.gold,
                   },
                 ]} />
               </View>
@@ -221,137 +223,139 @@ export default function DeviceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: Colors.bg0 },
-  scroll: { padding: Spacing.xl, paddingBottom: 60, gap: 20 },
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    safe:   { flex: 1, backgroundColor: c.bg0 },
+    scroll: { padding: Spacing.xl, paddingBottom: 60, gap: 20 },
 
-  // ── Section ───────────────────────────────────────
-  section: { gap: 8 },
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', paddingLeft: 4, paddingRight: 2,
-  },
-  sectionLabel: {
-    fontFamily: Fonts.cinzel, fontSize: 9, color: Colors.text2, letterSpacing: 2.5,
-  },
-  card: {
-    backgroundColor: Colors.bg2, borderWidth: 0.5, borderColor: Colors.goldBorder,
-    borderRadius: Radius.lg, overflow: 'hidden',
-  },
-  sep: {
-    height: 0.5, backgroundColor: 'rgba(200,137,42,0.07)',
-    marginHorizontal: Spacing.lg,
-  },
+    // ── Section ───────────────────────────────────────
+    section: { gap: 8 },
+    sectionHeader: {
+      flexDirection: 'row', alignItems: 'center',
+      justifyContent: 'space-between', paddingLeft: 4, paddingRight: 2,
+    },
+    sectionLabel: {
+      fontFamily: Fonts.cinzel, fontSize: 9, color: c.text2, letterSpacing: 2.5,
+    },
+    card: {
+      backgroundColor: c.bg2, borderWidth: 0.5, borderColor: c.goldBorder,
+      borderRadius: Radius.lg, overflow: 'hidden',
+    },
+    sep: {
+      height: 0.5, backgroundColor: 'rgba(200,137,42,0.07)',
+      marginHorizontal: Spacing.lg,
+    },
 
-  // ── Sessions ──────────────────────────────────────
-  sessionRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: Spacing.lg, paddingVertical: 14,
-  },
-  deviceIcon: {
-    width: 38, height: 38, borderRadius: 10,
-    backgroundColor: Colors.bg3,
-    borderWidth: 0.5, borderColor: Colors.goldBorder,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  deviceIconActive: {
-    borderColor: 'rgba(200,137,42,0.5)',
-    backgroundColor: 'rgba(200,137,42,0.08)',
-  },
-  deviceIconText: {
-    fontFamily: Fonts.cinzel, fontSize: 16, color: Colors.text2,
-  },
-  deviceIconTextActive: { color: Colors.gold },
-  sessionInfo: { flex: 1 },
-  sessionTitleRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3,
-  },
-  sessionLabel: {
-    fontFamily: Fonts.cinzel, fontSize: FontSize.sm,
-    color: Colors.text0, flex: 1,
-  },
-  currentBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(39,174,96,0.1)',
-    borderWidth: 0.5, borderColor: 'rgba(39,174,96,0.3)',
-    borderRadius: Radius.full,
-    paddingHorizontal: 7, paddingVertical: 2,
-  },
-  currentDot: {
-    width: 5, height: 5, borderRadius: 3,
-    backgroundColor: Colors.success,
-    shadowColor: Colors.success,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1, shadowRadius: 3,
-  },
-  currentBadgeText: {
-    fontFamily: Fonts.cinzel, fontSize: 7,
-    color: Colors.success, letterSpacing: 1,
-  },
-  sessionMeta: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    color: Colors.text2, letterSpacing: 0.2,
-  },
-  removeBtn: {
-    width: 32, height: 32, borderRadius: 8,
-    backgroundColor: 'rgba(192,57,43,0.08)',
-    borderWidth: 0.5, borderColor: 'rgba(192,57,43,0.2)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  removeText: {
-    fontFamily: Fonts.cinzel, fontSize: 10,
-    color: Colors.danger,
-  },
-  emptyRow: {
-    paddingHorizontal: Spacing.lg, paddingVertical: 20, alignItems: 'center',
-  },
-  emptyText: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.md, color: Colors.text2,
-  },
-  sessionHint: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    color: Colors.text2, lineHeight: 18, paddingLeft: 4,
-  },
+    // ── Sessions ──────────────────────────────────────
+    sessionRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 12,
+      paddingHorizontal: Spacing.lg, paddingVertical: 14,
+    },
+    deviceIcon: {
+      width: 38, height: 38, borderRadius: 10,
+      backgroundColor: c.bg3,
+      borderWidth: 0.5, borderColor: c.goldBorder,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    deviceIconActive: {
+      borderColor: 'rgba(200,137,42,0.5)',
+      backgroundColor: 'rgba(200,137,42,0.08)',
+    },
+    deviceIconText: {
+      fontFamily: Fonts.cinzel, fontSize: 16, color: c.text2,
+    },
+    deviceIconTextActive: { color: c.gold },
+    sessionInfo: { flex: 1 },
+    sessionTitleRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3,
+    },
+    sessionLabel: {
+      fontFamily: Fonts.cinzel, fontSize: FontSize.sm,
+      color: c.text0, flex: 1,
+    },
+    currentBadge: {
+      flexDirection: 'row', alignItems: 'center', gap: 4,
+      backgroundColor: 'rgba(39,174,96,0.1)',
+      borderWidth: 0.5, borderColor: 'rgba(39,174,96,0.3)',
+      borderRadius: Radius.full,
+      paddingHorizontal: 7, paddingVertical: 2,
+    },
+    currentDot: {
+      width: 5, height: 5, borderRadius: 3,
+      backgroundColor: c.success,
+      shadowColor: c.success,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 1, shadowRadius: 3,
+    },
+    currentBadgeText: {
+      fontFamily: Fonts.cinzel, fontSize: 7,
+      color: c.success, letterSpacing: 1,
+    },
+    sessionMeta: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.xs,
+      color: c.text2, letterSpacing: 0.2,
+    },
+    removeBtn: {
+      width: 32, height: 32, borderRadius: 8,
+      backgroundColor: 'rgba(192,57,43,0.08)',
+      borderWidth: 0.5, borderColor: 'rgba(192,57,43,0.2)',
+      alignItems: 'center', justifyContent: 'center',
+    },
+    removeText: {
+      fontFamily: Fonts.cinzel, fontSize: 10,
+      color: c.danger,
+    },
+    emptyRow: {
+      paddingHorizontal: Spacing.lg, paddingVertical: 20, alignItems: 'center',
+    },
+    emptyText: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.md, color: c.text2,
+    },
+    sessionHint: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.xs,
+      color: c.text2, lineHeight: 18, paddingLeft: 4,
+    },
 
-  // ── Usage block ───────────────────────────────────
-  usageBlock: {
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg,
-  },
-  usageHeader: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 10,
-  },
-  usageTitle: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.md, color: Colors.text2,
-  },
-  usageCount: {
-    fontFamily: Fonts.cinzel, fontSize: FontSize.sm, color: Colors.text0,
-  },
-  track: {
-    height: 3, backgroundColor: Colors.bg4,
-    borderRadius: 2, overflow: 'hidden', marginBottom: 8,
-  },
-  fill: {
-    height: 3, borderRadius: 2,
-    shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6, shadowRadius: 4,
-  },
-  usageHint: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    color: Colors.text2, letterSpacing: 0.2,
-  },
+    // ── Usage block ───────────────────────────────────
+    usageBlock: {
+      paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg,
+    },
+    usageHeader: {
+      flexDirection: 'row', justifyContent: 'space-between',
+      alignItems: 'center', marginBottom: 10,
+    },
+    usageTitle: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.md, color: c.text2,
+    },
+    usageCount: {
+      fontFamily: Fonts.cinzel, fontSize: FontSize.sm, color: c.text0,
+    },
+    track: {
+      height: 3, backgroundColor: c.bg4,
+      borderRadius: 2, overflow: 'hidden', marginBottom: 8,
+    },
+    fill: {
+      height: 3, borderRadius: 2,
+      shadowColor: c.gold,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.6, shadowRadius: 4,
+    },
+    usageHint: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.xs,
+      color: c.text2, letterSpacing: 0.2,
+    },
 
-  // ── Info rows ─────────────────────────────────────
-  row: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingVertical: 15, gap: 20,
-  },
-  rowLabel: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.md, color: Colors.text2,
-  },
-  rowValue: {
-    fontFamily: Fonts.garamondMedium, fontSize: FontSize.md, color: Colors.text0,
-    textAlign: 'right',
-  },
-});
+    // ── Info rows ─────────────────────────────────────
+    row: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      paddingHorizontal: Spacing.lg, paddingVertical: 15, gap: 20,
+    },
+    rowLabel: {
+      fontFamily: Fonts.garamond, fontSize: FontSize.md, color: c.text2,
+    },
+    rowValue: {
+      fontFamily: Fonts.garamondMedium, fontSize: FontSize.md, color: c.text0,
+      textAlign: 'right',
+    },
+  }), [c]);
+}

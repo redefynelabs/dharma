@@ -2,7 +2,7 @@
 // Premium subscription paywall screen
 // Supports both custom UI and RevenueCat's native Paywall
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { useSubscription } from '@/hooks/useSubscription';
 import { GoldButton, GhostButton } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { useThemeColors, ThemeColors, Fonts, FontSize, Spacing, Radius } from '@/theme';
 
 // Feature list for premium
 const FEATURES = [
@@ -46,6 +46,8 @@ export default function PaywallScreen() {
     presentPaywall,
     loadOfferings,
   } = useSubscription();
+  const colors = useThemeColors();
+  const styles = useStyles(colors);
 
   const [selectedPackage, setSelectedPackage] = useState(packages[0] || null);
   const [restoring, setRestoring] = useState(false);
@@ -143,7 +145,7 @@ export default function PaywallScreen() {
           <Text style={styles.nativePaywallText}>
             Loading Premium Paywall...
           </Text>
-          <ActivityIndicator color={Colors.gold} />
+          <ActivityIndicator color={colors.gold} />
         </View>
       </SafeAreaView>
     );
@@ -214,7 +216,7 @@ export default function PaywallScreen() {
         {/* Plans */}
         {isLoadingOfferings ? (
           <View style={{ alignItems: 'center', paddingVertical: Spacing.xxl }}>
-            <ActivityIndicator color={Colors.gold} />
+            <ActivityIndicator color={colors.gold} />
           </View>
         ) : packages.length === 0 ? (
           <View style={styles.noPlans}>
@@ -307,7 +309,7 @@ export default function PaywallScreen() {
           style={{ alignItems: 'center', paddingVertical: 8 }}
         >
           {restoring ? (
-            <ActivityIndicator size="small" color={Colors.gold} />
+            <ActivityIndicator size="small" color={colors.gold} />
           ) : (
             <Text style={styles.restoreText}>Restore previous purchase</Text>
           )}
@@ -322,245 +324,247 @@ export default function PaywallScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.bg0,
-  },
-  closeBtn: {
-    position: 'absolute',
-    top: 54,
-    left: Spacing.xl,
-    zIndex: 10,
-  },
-  closeBtnText: {
-    fontFamily: Fonts.garamond,
-    fontSize: 20,
-    color: Colors.text2,
-    lineHeight: 22,
-  },
-  bgRing: {
-    position: 'absolute',
-    left: '50%',
-    marginLeft: -190,
-    borderWidth: 0.5,
-    borderColor: Colors.gold,
-  },
-  scroll: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: 64,
-    paddingBottom: 40,
-    gap: Spacing.xl,
-  },
-  badge: {
-    alignItems: 'center',
-  },
-  badgeGrad: {
-    borderWidth: 0.5,
-    borderColor: Colors.gold,
-    borderRadius: Radius.full,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  badgeText: {
-    fontFamily: Fonts.cinzel,
-    fontSize: 11,
-    letterSpacing: 2.5,
-    color: Colors.gold,
-  },
-  headline: {
-    fontFamily: Fonts.cinzelBold,
-    fontSize: 32,
-    color: Colors.text0,
-    letterSpacing: 1,
-    lineHeight: 42,
-    textAlign: 'center',
-  },
-  subHeadline: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.base,
-    color: Colors.text1,
-    textAlign: 'center',
-    lineHeight: 26,
-  },
-  featuresBlock: {
-    gap: 12,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(200,137,42,0.12)',
-    borderWidth: 0.5,
-    borderColor: Colors.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  checkMark: {
-    color: Colors.gold,
-    fontSize: 11,
-    lineHeight: 13,
-  },
-  featureText: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.md,
-    color: Colors.text1,
-    flex: 1,
-    lineHeight: 22,
-  },
-  noPlans: {
-    backgroundColor: Colors.bg2,
-    borderWidth: 0.5,
-    borderColor: Colors.goldBorder,
-    borderRadius: Radius.md,
-    padding: Spacing.lg,
-    alignItems: 'center',
-  },
-  noPlansText: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.sm,
-    color: Colors.text2,
-    textAlign: 'center',
-  },
-  noPlansError: {
-    fontFamily: Fonts.garamond,
-    fontSize: 11,
-    color: Colors.danger,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  retryBtn: {
-    marginTop: Spacing.md,
-    borderWidth: 0.5,
-    borderColor: Colors.goldBorder,
-    borderRadius: Radius.full,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-  },
-  retryBtnText: {
-    fontFamily: Fonts.cinzel,
-    fontSize: 10,
-    color: Colors.gold,
-    letterSpacing: 1,
-  },
-  plansBlock: {
-    gap: 10,
-  },
-  planCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: Colors.bg2,
-    borderWidth: 0.5,
-    borderColor: Colors.goldBorder,
-    borderRadius: Radius.md,
-    padding: 18,
-  },
-  planCardSelected: {
-    borderColor: Colors.gold,
-    backgroundColor: Colors.bg3,
-    shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  bestValueBadge: {
-    position: 'absolute',
-    top: -10,
-    right: 14,
-    backgroundColor: Colors.gold,
-    borderRadius: Radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-  },
-  bestValueText: {
-    fontFamily: Fonts.cinzel,
-    fontSize: 10,
-    color: Colors.bg0,
-    letterSpacing: 0.5,
-  },
-  radio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.goldBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  radioSelected: {
-    borderColor: Colors.gold,
-  },
-  radioDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.gold,
-  },
-  planInfo: {
-    flex: 1,
-  },
-  planLabel: {
-    fontFamily: Fonts.cinzel,
-    fontSize: 14,
-    color: Colors.text0,
-    letterSpacing: 0.8,
-  },
-  planNote: {
-    fontFamily: Fonts.garamond,
-    fontSize: 12,
-    color: Colors.success,
-    marginTop: 2,
-  },
-  priceBlock: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 1,
-  },
-  planPrice: {
-    fontFamily: Fonts.cinzel,
-    fontSize: 22,
-    color: Colors.text0,
-  },
-  planPriceActive: {
-    color: Colors.gold,
-  },
-  planPeriod: {
-    fontFamily: Fonts.garamond,
-    fontSize: 12,
-    color: Colors.text2,
-  },
-  restoreText: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.sm,
-    color: Colors.text2,
-    letterSpacing: 0.5,
-  },
-  legal: {
-    fontFamily: Fonts.garamond,
-    fontSize: 12,
-    color: Colors.text2,
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  nativePaywallContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.bg0,
-  },
-  nativePaywallText: {
-    fontFamily: Fonts.garamond,
-    fontSize: FontSize.md,
-    color: Colors.text1,
-    marginBottom: Spacing.md,
-  },
-});
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: c.bg0,
+    },
+    closeBtn: {
+      position: 'absolute',
+      top: 54,
+      left: Spacing.xl,
+      zIndex: 10,
+    },
+    closeBtnText: {
+      fontFamily: Fonts.garamond,
+      fontSize: 20,
+      color: c.text2,
+      lineHeight: 22,
+    },
+    bgRing: {
+      position: 'absolute',
+      left: '50%',
+      marginLeft: -190,
+      borderWidth: 0.5,
+      borderColor: c.gold,
+    },
+    scroll: {
+      paddingHorizontal: Spacing.xl,
+      paddingTop: 64,
+      paddingBottom: 40,
+      gap: Spacing.xl,
+    },
+    badge: {
+      alignItems: 'center',
+    },
+    badgeGrad: {
+      borderWidth: 0.5,
+      borderColor: c.gold,
+      borderRadius: Radius.full,
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+    },
+    badgeText: {
+      fontFamily: Fonts.cinzel,
+      fontSize: 11,
+      letterSpacing: 2.5,
+      color: c.gold,
+    },
+    headline: {
+      fontFamily: Fonts.cinzelBold,
+      fontSize: 32,
+      color: c.text0,
+      letterSpacing: 1,
+      lineHeight: 42,
+      textAlign: 'center',
+    },
+    subHeadline: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.base,
+      color: c.text1,
+      textAlign: 'center',
+      lineHeight: 26,
+    },
+    featuresBlock: {
+      gap: 12,
+    },
+    featureRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+    },
+    checkCircle: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: 'rgba(200,137,42,0.12)',
+      borderWidth: 0.5,
+      borderColor: c.gold,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    checkMark: {
+      color: c.gold,
+      fontSize: 11,
+      lineHeight: 13,
+    },
+    featureText: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.md,
+      color: c.text1,
+      flex: 1,
+      lineHeight: 22,
+    },
+    noPlans: {
+      backgroundColor: c.bg2,
+      borderWidth: 0.5,
+      borderColor: c.goldBorder,
+      borderRadius: Radius.md,
+      padding: Spacing.lg,
+      alignItems: 'center',
+    },
+    noPlansText: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.sm,
+      color: c.text2,
+      textAlign: 'center',
+    },
+    noPlansError: {
+      fontFamily: Fonts.garamond,
+      fontSize: 11,
+      color: c.danger,
+      textAlign: 'center',
+      marginTop: 6,
+    },
+    retryBtn: {
+      marginTop: Spacing.md,
+      borderWidth: 0.5,
+      borderColor: c.goldBorder,
+      borderRadius: Radius.full,
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+    },
+    retryBtnText: {
+      fontFamily: Fonts.cinzel,
+      fontSize: 10,
+      color: c.gold,
+      letterSpacing: 1,
+    },
+    plansBlock: {
+      gap: 10,
+    },
+    planCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 14,
+      backgroundColor: c.bg2,
+      borderWidth: 0.5,
+      borderColor: c.goldBorder,
+      borderRadius: Radius.md,
+      padding: 18,
+    },
+    planCardSelected: {
+      borderColor: c.gold,
+      backgroundColor: c.bg3,
+      shadowColor: c.gold,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.15,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    bestValueBadge: {
+      position: 'absolute',
+      top: -10,
+      right: 14,
+      backgroundColor: c.gold,
+      borderRadius: Radius.full,
+      paddingHorizontal: 12,
+      paddingVertical: 3,
+    },
+    bestValueText: {
+      fontFamily: Fonts.cinzel,
+      fontSize: 10,
+      color: c.bg0,
+      letterSpacing: 0.5,
+    },
+    radio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 1.5,
+      borderColor: c.goldBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0,
+    },
+    radioSelected: {
+      borderColor: c.gold,
+    },
+    radioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor: c.gold,
+    },
+    planInfo: {
+      flex: 1,
+    },
+    planLabel: {
+      fontFamily: Fonts.cinzel,
+      fontSize: 14,
+      color: c.text0,
+      letterSpacing: 0.8,
+    },
+    planNote: {
+      fontFamily: Fonts.garamond,
+      fontSize: 12,
+      color: c.success,
+      marginTop: 2,
+    },
+    priceBlock: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 1,
+    },
+    planPrice: {
+      fontFamily: Fonts.cinzel,
+      fontSize: 22,
+      color: c.text0,
+    },
+    planPriceActive: {
+      color: c.gold,
+    },
+    planPeriod: {
+      fontFamily: Fonts.garamond,
+      fontSize: 12,
+      color: c.text2,
+    },
+    restoreText: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.sm,
+      color: c.text2,
+      letterSpacing: 0.5,
+    },
+    legal: {
+      fontFamily: Fonts.garamond,
+      fontSize: 12,
+      color: c.text2,
+      textAlign: 'center',
+      lineHeight: 19,
+    },
+    nativePaywallContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.bg0,
+    },
+    nativePaywallText: {
+      fontFamily: Fonts.garamond,
+      fontSize: FontSize.md,
+      color: c.text1,
+      marginBottom: Spacing.md,
+    },
+  }), [c]);
+}

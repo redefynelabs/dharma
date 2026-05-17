@@ -1,15 +1,19 @@
 import {
   ScrollView, View, Text, TouchableOpacity,
-  StyleSheet, Dimensions, ImageBackground,
+  StyleSheet, Dimensions, ImageBackground, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as Sharing from 'expo-sharing';
+import ViewShot from 'react-native-view-shot';
+import { Share2 } from 'lucide-react-native';
 import { useAuthStore } from '@/store/authStore';
 import { useReaderStore } from '@/store/readerStore';
 import { PremiumBadge } from '@/components/UI';
-import { Colors, Fonts, FontSize, Spacing, Radius } from '@/theme';
+import { Colors, Fonts, FontSize, Spacing, Radius, useThemeColors, ThemeColors } from '@/theme';
+import { useMemo, useRef, useState } from 'react';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const BANNER_H = Math.round(SCREEN_W * 9 / 16); // natural 16:9 height
@@ -66,23 +70,24 @@ function getDailyVerse() {
 }
 const DAILY = getDailyVerse();
 
-// ─── Section divider ──────────────────────────────────────────────────────────
 
-function Divider({ label }: { label: string }) {
+
+// Divider 
+function Divider({ label, c }: { label: string; c: ThemeColors }) {
   return (
-    <View style={divStyles.row}>
-      <View style={divStyles.line} />
-      <Text style={divStyles.label}>{label}</Text>
-      <View style={divStyles.line} />
+    <View style={divStyles(c).row}>
+      <View style={divStyles(c).line} />
+      <Text style={divStyles(c).label}>{label}</Text>
+      <View style={divStyles(c).line} />
     </View>
   );
 }
-const divStyles = StyleSheet.create({
-  row:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
-  line:  { flex: 1, height: 0.5, backgroundColor: 'rgba(200,137,42,0.18)' },
-  label: { fontFamily: Fonts.cinzel, fontSize: 9, color: Colors.text2, letterSpacing: 3 },
-});
 
+const divStyles = (c: ThemeColors) => StyleSheet.create({
+  row:   { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  line:  { flex: 1, height: 0.5, backgroundColor: c.goldBorder },
+  label: { fontFamily: Fonts.cinzel, fontSize: 9, color: c.text2, letterSpacing: 3 },
+});
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
@@ -91,9 +96,33 @@ export default function HomeScreen() {
   const { user }  = useAuthStore();
   const isProUser = user?.subscription.tier === 'pro';
   const lastRead  = useReaderStore((s) => s.lastRead);
+  const colors  = useThemeColors();
+  const styles  = useStyles(colors);
 
   const hour     = new Date().getHours();
   const greeting = hour < 5 ? 'Good Night' : hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
+
+  const shareCardRef = useRef<ViewShot>(null);
+  const [sharing, setSharing] = useState(false);
+
+  async function handleShareVerse() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSharing(true);
+    try {
+      const uri = await (shareCardRef.current as any)?.capture();
+      if (!uri) throw new Error('capture failed');
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: `Share — ${DAILY.ref}` });
+      } else {
+        Alert.alert('Sharing not available', 'Your device does not support sharing.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not capture share image.');
+    } finally {
+      setSharing(false);
+    }
+  }
 
   function openScripture(key: string) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -110,8 +139,8 @@ export default function HomeScreen() {
 
       {/* ── Header scrim — always-visible dark gradient behind the header ──────── */}
       <LinearGradient
-        colors={['rgba(8,7,5,0.96)', 'rgba(8,7,5,0.72)', 'rgba(8,7,5,0.2)', 'transparent']}
-        locations={[0, 0.55, 0.8, 1]}
+  colors={[colors.overlay, colors.overlayLight, 'transparent']}
+  locations={[0, 0.55, 0.8, 1]}
         style={[styles.headerScrim, { height: insets.top + 110 }]}
         pointerEvents="none"
       />
@@ -147,51 +176,21 @@ export default function HomeScreen() {
           {/* overall dim for moodiness */}
           <View style={[StyleSheet.absoluteFill, styles.bannerDim]} />
 
-          {/* bottom fade: image dissolves into bg0 */}
-          <LinearGradient
-            colors={['transparent', 'rgba(8,7,5,0.65)', '#080705']}
-            locations={[0, 0.55, 1]}
-            style={styles.bannerBottomFade}
-          />
-          {/* left vignette */}
-          <LinearGradient
-            colors={['rgba(8,7,5,0.48)', 'transparent']}
-            start={{ x: 0, y: 0.5 }} end={{ x: 0.5, y: 0.5 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
+<LinearGradient
+  colors={['transparent', colors.overlayLight, colors.bg0]}
+  locations={[0, 0.55, 1]}
+  style={styles.bannerBottomFade}
+/>
+
+<LinearGradient
+  colors={[colors.overlayLight, 'transparent']}
+  start={{ x: 0, y: 0.5 }}
+  end={{ x: 0.5, y: 0.5 }}
+/>
         </ImageBackground>
 
         {/* ── Content below the banner ───────────────────────────────────────── */}
         <View style={styles.content}>
-
-        {/* ── Continue Reading ───────────────────────────────────────────────── */}
-        {lastRead && (
-          <TouchableOpacity
-            style={styles.continueCard}
-            activeOpacity={0.82}
-            onPress={() => router.push({
-              pathname: '/(app)/reader/verse' as any,
-              params: {
-                book: lastRead.book,
-                id: lastRead.verseId,
-                sectionKey: lastRead.sectionKey,
-                unitKey: lastRead.unitKey,
-                verseIndex: String(lastRead.verseIndex),
-              },
-            })}
-          >
-            <View style={[styles.continueBar, { backgroundColor: lastRead.accent }]} />
-            <View style={styles.continueLeft}>
-              <Text style={styles.continueLabel}>CONTINUE READING</Text>
-              <Text style={[styles.continueRef, { color: lastRead.accent }]}>{lastRead.ref}</Text>
-              <Text style={styles.continuePreview} numberOfLines={2}>{lastRead.preview}</Text>
-            </View>
-            <View style={styles.continueSym}>
-              <Text style={[styles.continueSymText, { color: lastRead.accent }]}>{lastRead.sym}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
 
         {/* ── Verse of the Day ───────────────────────────────────────────────── */}
         <View style={styles.verseCard}>
@@ -223,24 +222,66 @@ export default function HomeScreen() {
               <Text style={styles.verseYoga}>{DAILY.yoga}</Text>
               <Text style={styles.verseRef}>{DAILY.ref}</Text>
             </View>
-            <TouchableOpacity
-              style={styles.seekBtn}
-              activeOpacity={0.8}
-              onPress={() => askDharma(DAILY.quote)}
-            >
-              <LinearGradient
-                colors={['rgba(200,137,42,0.22)', 'rgba(200,137,42,0.10)']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.seekBtnInner}
+            <View style={styles.verseFooterActions}>
+              <TouchableOpacity
+                style={styles.shareBtn}
+                activeOpacity={0.8}
+                onPress={handleShareVerse}
+                disabled={sharing}
               >
-                <Text style={styles.seekBtnText}>Seek Wisdom  ›</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <Share2 size={15} color={colors.gold} strokeWidth={2} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.seekBtn}
+                activeOpacity={0.8}
+                onPress={() => askDharma(DAILY.quote)}
+              >
+                <LinearGradient
+                  colors={['rgba(200,137,42,0.22)', 'rgba(200,137,42,0.10)']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.seekBtnInner}
+                >
+                  <Text style={styles.seekBtnText}>Seek Wisdom  ›</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
+        {/* ── Recent Reading ─────────────────────────────────────────────────── */}
+        {lastRead && (
+          <>
+            <Divider label="RECENT READING" c={colors} />
+            <TouchableOpacity
+              style={styles.continueCard}
+              activeOpacity={0.82}
+              onPress={() => router.push({
+                pathname: '/(app)/reader/verse' as any,
+                params: {
+                  book: lastRead.book,
+                  id: lastRead.verseId,
+                  sectionKey: lastRead.sectionKey,
+                  unitKey: lastRead.unitKey,
+                  verseIndex: String(lastRead.verseIndex),
+                },
+              })}
+            >
+              <View style={[styles.continueBar, { backgroundColor: lastRead.accent }]} />
+              <View style={styles.continueLeft}>
+                <Text style={[styles.continueBookSym, { color: lastRead.accent }]}>{lastRead.sym}</Text>
+                <Text style={[styles.continueRef, { color: lastRead.accent }]}>{lastRead.ref}</Text>
+                <Text style={styles.continuePreview} numberOfLines={2}>{lastRead.preview}</Text>
+              </View>
+              <View style={[styles.continueCta, { borderColor: lastRead.accent + '40' }]}>
+                <Text style={[styles.continueCtaText, { color: lastRead.accent }]}>Continue</Text>
+                <Text style={[styles.continueCtaArrow, { color: lastRead.accent }]}>›</Text>
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
+
         {/* ── Sacred Library ─────────────────────────────────────────────────── */}
-        <Divider label="SACRED LIBRARY" />
+        <Divider label="SACRED LIBRARY" c={colors} />
 
         <View style={styles.scriptureList}>
           {SCRIPTURES.map((s) => (
@@ -262,7 +303,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Ask Dharma ─────────────────────────────────────────────────────── */}
-        <Divider label="DHARMA GUIDE" />
+        <Divider label="DHARMA GUIDE" c={colors} />
 
         <TouchableOpacity style={styles.askCard} activeOpacity={0.82} onPress={() => askDharma()}>
           <LinearGradient
@@ -283,7 +324,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* ── Seek Guidance chips ────────────────────────────────────────────── */}
-        <Divider label="SEEK GUIDANCE" />
+        <Divider label="SEEK GUIDANCE" c={colors} />
 
         <ScrollView
           horizontal
@@ -310,14 +351,39 @@ export default function HomeScreen() {
 
         </View>{/* end content */}
       </ScrollView>
+
+      {/* ── Hidden share card for image export ──────────────────────────────── */}
+      <View style={[styles.shareCardWrapper, { pointerEvents: 'none' }]}>
+        <ViewShot ref={shareCardRef} options={{ format: 'png', quality: 1 }} style={styles.shareCard}>
+          <View style={styles.shareCardBg}>
+            <View style={styles.shareCardOrnament}>
+              <View style={styles.shareOrnLine} />
+              <Text style={styles.shareOrnDot}>✦</Text>
+              <View style={styles.shareOrnLine} />
+            </View>
+            <Text style={styles.shareCardBadge}>VERSE OF THE DAY</Text>
+            <Text style={styles.shareCardQuote}>{DAILY.quote}</Text>
+            <View style={styles.shareCardFooter}>
+              <View style={styles.shareCardAccentBar} />
+              <View>
+                <Text style={styles.shareCardYoga}>{DAILY.yoga}</Text>
+                <Text style={styles.shareCardRef}>{DAILY.ref}</Text>
+                <Text style={styles.shareCardApp}>dharma · sacred scripture</Text>
+              </View>
+            </View>
+          </View>
+        </ViewShot>
+      </View>
+
     </View>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.bg0 },
+function useStyles(c: ThemeColors) {
+  return useMemo(() => StyleSheet.create({
+  root: { flex: 1, backgroundColor: c.bg0 },
 
   // ── Header scrim (behind header, above scroll) ────────────────────────────
   headerScrim: {
@@ -341,26 +407,28 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   greeting: {
     fontFamily: Fonts.cinzel, fontSize: 9,
-    color: Colors.goldDim, letterSpacing: 3, marginBottom: 4,
+    color: c.goldDim, letterSpacing: 3, marginBottom: 4,
   },
   username: {
     fontFamily: Fonts.cinzelBold, fontSize: FontSize.xl,
-    color: Colors.text0, letterSpacing: 0.5,
+    color: c.text0, letterSpacing: 0.5,
   },
   omRing: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(8,7,5,0.45)',
-    borderWidth: 0.5, borderColor: Colors.goldBorder,
+    borderWidth: 0.5, borderColor: c.goldBorder,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: Colors.gold,
+    shadowColor: c.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
   },
-  omGlyph: { fontFamily: Fonts.cinzel, fontSize: 16, color: Colors.gold },
+  omGlyph: { fontFamily: Fonts.cinzel, fontSize: 16, color: c.gold },
 
   // ── Banner (inside scroll) ─────────────────────────────────────────────────
   banner: { width: '100%' },
-  bannerDim: { backgroundColor: 'rgba(8,7,5,0.22)' },
+ bannerDim: {
+  backgroundColor: c.overlayLight,
+},
   bannerBottomFade: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
@@ -382,7 +450,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: Colors.bg2,
+    backgroundColor: c.bg2,
     borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.14)',
     borderRadius: 14,
     paddingVertical: Spacing.lg, paddingRight: Spacing.lg, paddingLeft: 20,
@@ -391,38 +459,40 @@ const styles = StyleSheet.create({
   continueBar: {
     position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
   },
-  continueLeft: { flex: 1, gap: 4 },
-  continueLabel: {
-    fontFamily: Fonts.cinzel, fontSize: 7.5,
-    color: Colors.text2, letterSpacing: 2.5,
+  continueLeft: { flex: 1, gap: 5 },
+  continueBookSym: {
+    fontFamily: Fonts.cinzel, fontSize: 13, letterSpacing: 0.5,
   },
   continueRef: {
-    fontFamily: Fonts.cinzel, fontSize: FontSize.sm, letterSpacing: 0.5,
+    fontFamily: Fonts.cinzelBold, fontSize: FontSize.sm, letterSpacing: 0.4,
   },
   continuePreview: {
     fontFamily: Fonts.garamondItalic, fontSize: FontSize.sm,
-    color: Colors.text2, lineHeight: 20,
+    color: c.text2, lineHeight: 20,
   },
-  continueSym: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: Colors.bg1,
-    borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.18)',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  continueCta: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    borderWidth: 0.5, borderRadius: Radius.full,
+    paddingHorizontal: 14, paddingVertical: 7,
+    flexShrink: 0,
   },
-  continueSymText: {
-    fontFamily: Fonts.cinzel, fontSize: 18,
+  continueCtaText: {
+    fontFamily: Fonts.cinzel, fontSize: 9, letterSpacing: 1,
+  },
+  continueCtaArrow: {
+    fontFamily: Fonts.garamond, fontSize: 16, lineHeight: 18,
   },
 
   // ── Verse of the Day card ──────────────────────────────────────────────────
   verseCard: {
-    backgroundColor: Colors.bg2,
+    backgroundColor: c.bg2,
     borderWidth: 0.5,
-    borderColor: Colors.goldBorder,
+    borderColor: c.goldBorder,
     borderRadius: 16,
     padding: Spacing.xl,
     overflow: 'hidden',
     gap: 16,
-    shadowColor: Colors.gold,
+    shadowColor: c.gold,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 20,
@@ -431,7 +501,7 @@ const styles = StyleSheet.create({
   ring: {
     position: 'absolute',
     borderRadius: 999,
-    borderColor: Colors.gold,
+    borderColor: c.gold,
     borderWidth: 0.5,
     opacity: 0.04,
   },
@@ -444,22 +514,22 @@ const styles = StyleSheet.create({
   },
   verseBadgeDot: {
     width: 5, height: 5, borderRadius: 3,
-    backgroundColor: Colors.gold,
-    shadowColor: Colors.gold,
+    backgroundColor: c.gold,
+    shadowColor: c.gold,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9, shadowRadius: 4, elevation: 4,
   },
   verseBadgeText: {
     fontFamily: Fonts.cinzel, fontSize: 8.5,
-    color: Colors.goldDim, letterSpacing: 2.5,
+    color: c.goldDim, letterSpacing: 2.5,
   },
   quoteGlyph: {
     fontFamily: Fonts.cinzel, fontSize: 38,
-    color: Colors.gold, lineHeight: 34, marginBottom: -4,
+    color: c.gold, lineHeight: 34, marginBottom: -4,
   },
   quoteText: {
     fontFamily: Fonts.garamondItalic, fontSize: 18,
-    color: Colors.text0, lineHeight: 32, letterSpacing: 0.15,
+    color: c.text0, lineHeight: 32, letterSpacing: 0.15,
   },
   verseDivider: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
@@ -469,7 +539,7 @@ const styles = StyleSheet.create({
   },
   verseDividerDot: {
     fontFamily: Fonts.cinzel, fontSize: 12,
-    color: Colors.gold, lineHeight: 14,
+    color: c.gold, lineHeight: 14,
   },
   verseFooter: {
     flexDirection: 'row', alignItems: 'flex-end',
@@ -478,27 +548,69 @@ const styles = StyleSheet.create({
   verseFooterMeta: { flex: 1 },
   verseYoga: {
     fontFamily: Fonts.cinzel, fontSize: 10,
-    color: Colors.gold, letterSpacing: 1, marginBottom: 3,
+    color: c.gold, letterSpacing: 1, marginBottom: 3,
   },
   verseRef: {
     fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    color: Colors.text2, letterSpacing: 0.5,
+    color: c.text2, letterSpacing: 0.5,
+  },
+  verseFooterActions: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0,
+  },
+  shareBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    borderWidth: 0.5, borderColor: c.goldBorder,
+    backgroundColor: 'rgba(200,137,42,0.08)',
+    alignItems: 'center', justifyContent: 'center',
   },
   seekBtn: {
     borderRadius: Radius.full, overflow: 'hidden',
-    borderWidth: 0.5, borderColor: Colors.goldBorder, flexShrink: 0,
+    borderWidth: 0.5, borderColor: c.goldBorder, flexShrink: 0,
   },
   seekBtnInner: { paddingHorizontal: 16, paddingVertical: 8 },
   seekBtnText: {
     fontFamily: Fonts.cinzel, fontSize: 9.5,
-    color: Colors.gold, letterSpacing: 1,
+    color: c.gold, letterSpacing: 1,
+  },
+
+  // ── Verse of the Day share card (off-screen) ────────────────────────────
+  shareCardWrapper: { position: 'absolute', top: 10000, left: 0, right: 0 },
+  shareCard:        { width: 360 },
+  shareCardBg: {
+    width: 360, backgroundColor: '#0f0d09',
+    borderWidth: 1, borderColor: 'rgba(200,137,42,0.33)',
+    borderRadius: 16, padding: 32, gap: 20,
+  },
+  shareCardOrnament: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  shareOrnLine:      { flex: 1, height: 0.5, backgroundColor: Colors.gitaAccent, opacity: 0.5 },
+  shareOrnDot:       { fontFamily: Fonts.cinzel, fontSize: 10, color: Colors.gitaAccent },
+  shareCardBadge: {
+    fontFamily: Fonts.cinzel, fontSize: 8.5,
+    color: '#c8892a', letterSpacing: 2.5, textAlign: 'center', marginBottom: -8,
+  },
+  shareCardQuote: {
+    fontFamily: Fonts.garamondItalic, fontSize: 19, color: '#f0e8d8',
+    lineHeight: 32, textAlign: 'center',
+  },
+  shareCardFooter:    { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 },
+  shareCardAccentBar: { width: 3, height: 44, borderRadius: 2, backgroundColor: Colors.gitaAccent },
+  shareCardYoga: {
+    fontFamily: Fonts.cinzel, fontSize: 10,
+    color: Colors.gitaAccent, letterSpacing: 1, marginBottom: 2,
+  },
+  shareCardRef: {
+    fontFamily: Fonts.cinzel, fontSize: 12,
+    color: Colors.gitaAccent, letterSpacing: 1, marginBottom: 3,
+  },
+  shareCardApp: {
+    fontFamily: Fonts.garamond, fontSize: 11, color: '#7a6a4a', letterSpacing: 1,
   },
 
   // ── Sacred Library ─────────────────────────────────────────────────────────
   scriptureList: { gap: 8 },
   scriptureRow: {
     flexDirection: 'row', alignItems: 'center', gap: 16,
-    backgroundColor: Colors.bg2,
+    backgroundColor: c.bg2,
     borderWidth: 0.5, borderColor: 'rgba(200,137,42,0.10)',
     borderRadius: 12,
     paddingVertical: 16, paddingRight: Spacing.xl, paddingLeft: 20,
@@ -514,11 +626,11 @@ const styles = StyleSheet.create({
   scriptureInfo: { flex: 1 },
   scriptureName: {
     fontFamily: Fonts.cinzel, fontSize: FontSize.sm,
-    color: Colors.text0, letterSpacing: 0.4, marginBottom: 3,
+    color: c.text0, letterSpacing: 0.4, marginBottom: 3,
   },
   scriptureMeta: {
     fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    color: Colors.text2, letterSpacing: 0.5,
+    color: c.text2, letterSpacing: 0.5,
   },
   scriptureChevron: {
     fontFamily: Fonts.garamond, fontSize: 20, lineHeight: 22, flexShrink: 0,
@@ -527,56 +639,57 @@ const styles = StyleSheet.create({
   // ── Ask Dharma ─────────────────────────────────────────────────────────────
   askCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: Colors.bg2,
-    borderWidth: 0.5, borderColor: Colors.goldBorder,
+    backgroundColor: c.bg2,
+    borderWidth: 0.5, borderColor: c.goldBorder,
     borderRadius: 14, padding: Spacing.lg, overflow: 'hidden',
   },
   askIconBox: {
     width: 44, height: 44, borderRadius: 11,
     backgroundColor: 'rgba(200,137,42,0.12)',
-    borderWidth: 0.5, borderColor: Colors.goldBorder,
+    borderWidth: 0.5, borderColor: c.goldBorder,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  askIconText: { fontFamily: Fonts.cinzel, fontSize: 20, color: Colors.gold },
+  askIconText: { fontFamily: Fonts.cinzel, fontSize: 20, color: c.gold },
   askBody:  { flex: 1 },
   askTitle: {
     fontFamily: Fonts.cinzel, fontSize: FontSize.sm,
-    color: Colors.text0, letterSpacing: 0.4, marginBottom: 3,
+    color: c.text0, letterSpacing: 0.4, marginBottom: 3,
   },
   askSub: {
-    fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: Colors.text2,
+    fontFamily: Fonts.garamond, fontSize: FontSize.xs, color: c.text2,
   },
   askArrowBox: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.goldFaint,
-    borderWidth: 0.5, borderColor: Colors.goldBorder,
+    backgroundColor: c.goldFaint,
+    borderWidth: 0.5, borderColor: c.goldBorder,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   askArrow: {
-    fontFamily: Fonts.garamond, fontSize: 20, lineHeight: 22, color: Colors.gold,
+    fontFamily: Fonts.garamond, fontSize: 20, lineHeight: 22, color: c.gold,
   },
 
   // ── Prompt chips ───────────────────────────────────────────────────────────
   chips: { gap: 8, paddingBottom: 4 },
   chip: {
-    borderWidth: 0.5, borderColor: Colors.goldBorder,
+    borderWidth: 0.5, borderColor: c.goldBorder,
     borderRadius: Radius.full,
     paddingHorizontal: 16, paddingVertical: 8,
-    backgroundColor: Colors.bg2,
+    backgroundColor: c.bg2,
   },
   chipText: {
     fontFamily: Fonts.garamond, fontSize: FontSize.sm,
-    color: Colors.text1, letterSpacing: 0.2,
+    color: c.text1, letterSpacing: 0.2,
   },
 
   // ── Closing ────────────────────────────────────────────────────────────────
   closing: { alignItems: 'center', gap: 6 },
   closingOrnament: {
     fontFamily: Fonts.cinzel, fontSize: 10,
-    color: Colors.goldDim, letterSpacing: 6,
+    color: c.goldDim, letterSpacing: 6,
   },
   closingText: {
     fontFamily: Fonts.garamond, fontSize: FontSize.xs,
-    color: Colors.text2, letterSpacing: 0.5,
+    color: c.text2, letterSpacing: 0.5,
   },
-});
+}), [c]);
+}

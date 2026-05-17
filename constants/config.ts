@@ -12,7 +12,7 @@
 
 const Config = {
   // Backend API — reads from build-time env variable with LAN-IP dev fallback.
-  API_BASE_URL: (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://10.213.218.252:3000/api/v1') as string,
+  API_BASE_URL: (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://dapi.bioalpha.in/api/v1') as string,
 
   // Google Sign-In OAuth Client IDs
   // Web client ID: Firebase Console → Authentication → Sign-in method → Google → Web SDK configuration

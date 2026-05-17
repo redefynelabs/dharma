@@ -14,11 +14,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "866683342547-q64qkupem525hn2fhhrpdj5i53ccbr41.apps.googleusercontent.com",
+          "client_id": "866683342547-o7ks8ofiookciqvkt4j4bmq264k0uvdm.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.redefyne.dharma",
-            "certificate_hash": "3aadd927abcd7905a38e4e093af91be218093f93"
+            "certificate_hash": "cd66398a49b1aafef612481e0308fce4fa7e010d"
           }
         },
         {

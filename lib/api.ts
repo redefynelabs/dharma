@@ -36,7 +36,7 @@ const api: AxiosInstance = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach fresh Firebase ID token to every request
+// Attach fresh Firebase ID token + stable device ID to every request
 api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
   try {
     const { getIdToken } = await import('./auth');
@@ -46,6 +46,13 @@ api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
     }
   } catch {
     // No user signed in — request will fail auth on the server
+  }
+  try {
+    const { getDeviceId } = await import('./deviceId');
+    const deviceId = await getDeviceId();
+    config.headers['X-Device-Id'] = deviceId;
+  } catch {
+    // SecureStore unavailable — device quota check falls back to user-only
   }
   return config;
 });
@@ -167,6 +174,37 @@ export const chatApi = {
         usage: { tokensUsed: number; processingMs: number };
       }>
     >('/chat/ask', data),
+};
+
+// ─── Verse API ────────────────────────────────────────
+
+export const verseApi = {
+  getCommentary: (scripture: string, reference: string) =>
+    api.get<ApiResponse<{ commentary: string | null }>>(
+      '/verses/commentary',
+      { params: { scripture, reference } }
+    ),
+
+  commentary: (data: {
+    scripture: import('@/types').Scripture;
+    reference: string;
+    sanskrit?: string;
+    english: string;
+  }) =>
+    api.post<ApiResponse<{ commentary: string; cached: boolean }>>(
+      '/verses/commentary',
+      data
+    ),
+};
+
+// ─── Notification API ─────────────────────────────────
+
+export const notificationApi = {
+  registerToken: (token: string) =>
+    api.post<ApiResponse<{ registered: boolean }>>('/users/me/push-token', { token }),
+
+  unregisterToken: (token: string) =>
+    api.delete<ApiResponse<{ removed: boolean }>>('/users/me/push-token', { data: { token } }),
 };
 
 // ─── Subscription API ─────────────────────────────────

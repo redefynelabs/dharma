@@ -30,6 +30,7 @@ export interface UserProfile {
   stats: {
     totalChats: number;
     dailyAiQueries: number;
+    dailyCommentary: number;
   };
   isNewUser?: boolean;
 }
