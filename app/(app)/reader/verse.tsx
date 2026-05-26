@@ -312,7 +312,9 @@ useEffect(() => {
       incrementDailyCommentary();
     } catch (e: any) {
       const msg: string = e?.message ?? '';
-      if (msg.toLowerCase().includes('limit') || e?.status === 429) {
+      if (e?.code === 'DEVICE_LIMIT_EXCEEDED') {
+        Alert.alert('Device Limit Reached', msg || 'This device has reached its daily AI limit across all accounts. Try again tomorrow.');
+      } else if (msg.toLowerCase().includes('limit') || e?.status === 429) {
         router.push('/(app)/paywall');
       } else {
         Alert.alert('Error', msg || 'Could not generate commentary.');
@@ -692,7 +694,7 @@ useEffect(() => {
           activeOpacity={0.8}
           onPress={() => router.push({
             pathname: '/(app)/(tabs)/chat' as any,
-            params: { prefill: `Explain this verse: ${verse.reference} — ${verse.english?.slice(0, 80)}` },
+            params: { prefill: `Explain this verse: ${verse.reference} — ${verse.english}` },
           })}
         >
           <View style={[styles.askIconBox, { backgroundColor: accent + '12' }]}>

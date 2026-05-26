@@ -215,7 +215,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
             colors={["rgba(200,137,42,0.14)", "rgba(200,137,42,0.07)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, { borderRadius: 22, borderBottomRightRadius: 5 }]}
           />
           <Text style={styles.bubbleUserText}>{msg.content}</Text>
         </View>
@@ -574,6 +574,17 @@ export default function ChatSessionScreen() {
                 (m) => m.id !== "typing" && m.id !== tempUserMsg.id,
               ),
             );
+            try {
+              const e = JSON.parse(xhr.responseText);
+              if (e?.error?.code === 'DEVICE_LIMIT_EXCEEDED') {
+                Alert.alert(
+                  'Device Limit Reached',
+                  e.error.message || 'This device has reached its daily AI limit across all accounts. Try again tomorrow.',
+                );
+                settle(resolve);
+                return;
+              }
+            } catch {}
             router.push("/(app)/paywall");
             settle(resolve);
             return;
@@ -926,7 +937,6 @@ function useStyles(colors: ThemeColors) {
           borderBottomRightRadius: 5,
           paddingHorizontal: 16,
           paddingVertical: 12,
-          overflow: "hidden",
           backgroundColor: "rgba(200,137,42,0.10)",
         },
         bubbleUserText: {

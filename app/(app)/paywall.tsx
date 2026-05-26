@@ -223,7 +223,7 @@ export default function PaywallScreen() {
             <Text style={styles.noPlansText}>
               Plans unavailable. Check your connection and try again.
             </Text>
-            {__DEV__ && offeringsError && (
+            {offeringsError && (
               <Text style={styles.noPlansError}>{offeringsError.message}</Text>
             )}
             <TouchableOpacity

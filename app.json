@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#fff2db"
     },
@@ -26,7 +26,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#fff2db"
       },
       "package": "com.redefyne.dharma",
       "googleServicesFile": "./google-services.json",
@@ -44,6 +45,14 @@
       "expo-font",
       "expo-secure-store",
       "expo-media-library",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#fff2db"
+        }
+      ],
       [
         "expo-notifications",
         {

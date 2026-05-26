@@ -20,6 +20,10 @@
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://dapi.bioalpha.in/api/v1",
+        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "goog_qVyiEdEvQQpDmiLokDHFWCdbchP"
+      },
       "android": {
         "buildType": "apk"
       }
